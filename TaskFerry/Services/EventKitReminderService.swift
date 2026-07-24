@@ -118,6 +118,9 @@ final class EventKitReminderService: ReminderService {
             reminder = EKReminder(eventStore: store)
         }
         reminder.title = title
+        if let notes = request.notes {
+            reminder.notes = notes.trimmed.isEmpty ? nil : notes
+        }
         reminder.calendar = calendar
         reminder.dueDateComponents = request.due?.dateComponents
         try store.save(reminder, commit: true)
@@ -146,6 +149,7 @@ final class EventKitReminderService: ReminderService {
             id: reminder.calendarItemIdentifier,
             listID: calendar.calendarIdentifier,
             title: reminder.title ?? "Untitled Reminder",
+            notes: reminder.notes,
             due: reminder.dueDateComponents.map(ReminderDue.init)
         )
     }

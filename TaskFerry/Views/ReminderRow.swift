@@ -40,6 +40,12 @@ struct ReminderRow: View {
                     Text(reminder.title)
                         .foregroundStyle(.primary)
                         .lineLimit(2)
+                    if let notes = reminder.notes?.trimmed, !notes.isEmpty {
+                        Text(notes)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                     metadata
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

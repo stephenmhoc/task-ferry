@@ -2,7 +2,14 @@ import XCTest
 final class ProtocolTests: XCTestCase {
     func testRPCRequestRoundTrip() throws {
         let due = ReminderDue(year: 2026, month: 7, day: 21, hour: 9, minute: 30, timeZoneIdentifier: "America/New_York")
-        let request = RPCRequest(operation: .upsertReminder, id: "abc", title: "Call dentist", listID: "personal", due: due)
+        let request = RPCRequest(
+            operation: .upsertReminder,
+            id: "abc",
+            title: "Call dentist",
+            notes: "Ask about the new office.",
+            listID: "personal",
+            due: due
+        )
 
         let data = try JSONEncoder().encode(request)
         let decoded = try JSONDecoder().decode(RPCRequest.self, from: data)
@@ -10,8 +17,49 @@ final class ProtocolTests: XCTestCase {
         XCTAssertEqual(decoded.operation, .upsertReminder)
         XCTAssertEqual(decoded.id, "abc")
         XCTAssertEqual(decoded.title, "Call dentist")
+        XCTAssertEqual(decoded.notes, "Ask about the new office.")
         XCTAssertEqual(decoded.listID, "personal")
         XCTAssertEqual(decoded.due, due)
+    }
+
+    func testReminderNotesRoundTrip() throws {
+        let snapshot = ReminderSnapshot(
+            lists: [ReminderListRecord(id: "personal", title: "Personal", colorHex: "5E5CE6")],
+            reminders: [
+                ReminderRecord(
+                    id: "abc",
+                    listID: "personal",
+                    title: "Call dentist",
+                    notes: "Ask about the new office.",
+                    due: nil
+                )
+            ]
+        )
+
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(ReminderSnapshot.self, from: data)
+
+        XCTAssertEqual(decoded.reminders.first?.notes, "Ask about the new office.")
+    }
+
+    func testReminderWithoutNotesRemainsDecodable() throws {
+        let data = Data(
+            #"{"lists":[],"reminders":[{"id":"abc","listID":"personal","title":"Call dentist","due":null}]}"#.utf8
+        )
+
+        let decoded = try JSONDecoder().decode(ReminderSnapshot.self, from: data)
+
+        XCTAssertNil(decoded.reminders.first?.notes)
+    }
+
+    func testRequestWithoutNotesRemainsDecodable() throws {
+        let data = Data(
+            #"{"operation":"upsertReminder","id":"abc","title":"Call dentist","listID":"personal"}"#.utf8
+        )
+
+        let decoded = try JSONDecoder().decode(RPCRequest.self, from: data)
+
+        XCTAssertNil(decoded.notes)
     }
 
     func testSnapshotPreservesDefaultList() throws {

@@ -84,6 +84,7 @@ struct ReminderRecord: Codable, Hashable, Identifiable, Sendable {
     var id: String
     var listID: String
     var title: String
+    var notes: String? = nil
     var due: ReminderDue?
 }
 
@@ -108,6 +109,7 @@ struct RPCRequest: Codable, Sendable {
     var operation: RPCOperation
     var id: String? = nil
     var title: String? = nil
+    var notes: String? = nil
     var listID: String? = nil
     var due: ReminderDue? = nil
     var completed: Bool? = nil

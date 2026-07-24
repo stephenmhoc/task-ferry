@@ -5,6 +5,7 @@ struct ReminderEditorView: View {
     @Bindable var state: AppState
     let reminder: ReminderRecord?
     @State private var title: String
+    @State private var notes: String
     @State private var listID: String
     @State private var hasDue: Bool
     @State private var dueDate: Date
@@ -17,6 +18,7 @@ struct ReminderEditorView: View {
         self.state = state
         self.reminder = reminder
         _title = State(initialValue: reminder?.title ?? "")
+        _notes = State(initialValue: reminder?.notes ?? "")
         _listID = State(initialValue: reminder?.listID ?? defaultListID)
         _hasDue = State(initialValue: reminder?.due != nil)
         _dueDate = State(initialValue: reminder?.due?.date() ?? Date())
@@ -44,6 +46,8 @@ struct ReminderEditorView: View {
             Form {
                 Section("Reminder") {
                     TextField("Title", text: $title)
+                    TextField("Notes", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
                     Picker("List", selection: $listID) {
                         ForEach(state.snapshot.lists) { list in
                             Text(list.title).tag(list.id)
@@ -105,13 +109,25 @@ struct ReminderEditorView: View {
         guard !isSaving, !isDeleting else { return }
         let selectedListID = listID
         let selectedDue = due
+        let reminderNotes = notes.trimmed.isEmpty ? "" : notes
         isSaving = true
         Task {
             let succeeded: Bool
             if let reminder {
-                succeeded = await state.updateReminder(reminder, title: cleanTitle, listID: selectedListID, due: selectedDue)
+                succeeded = await state.updateReminder(
+                    reminder,
+                    title: cleanTitle,
+                    listID: selectedListID,
+                    due: selectedDue,
+                    notes: reminderNotes
+                )
             } else {
-                succeeded = await state.createReminder(title: cleanTitle, listID: selectedListID, due: selectedDue)
+                succeeded = await state.createReminder(
+                    title: cleanTitle,
+                    listID: selectedListID,
+                    due: selectedDue,
+                    notes: reminderNotes
+                )
             }
             if succeeded {
                 dismiss()

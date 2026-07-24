@@ -9,10 +9,38 @@ final class DemoReminderServiceTests: XCTestCase {
         let updated = try await service.execute(RPCRequest(
             operation: .upsertReminder,
             title: "A newly added reminder",
+            notes: "With useful context.",
             listID: listID
         ))
 
-        XCTAssertTrue(updated.reminders.contains { $0.title == "A newly added reminder" })
+        XCTAssertTrue(updated.reminders.contains {
+            $0.title == "A newly added reminder" && $0.notes == "With useful context."
+        })
+    }
+
+    func testUpdatingReminderCanPreserveAndClearNotes() async throws {
+        let service = DemoReminderService()
+        let original = try await service.execute(.snapshot)
+        let reminder = try XCTUnwrap(original.reminders.first { $0.notes != nil })
+
+        let preserved = try await service.execute(RPCRequest(
+            operation: .upsertReminder,
+            id: reminder.id,
+            title: "Updated title",
+            listID: reminder.listID,
+            due: reminder.due
+        ))
+        XCTAssertEqual(preserved.reminders.first { $0.id == reminder.id }?.notes, reminder.notes)
+
+        let cleared = try await service.execute(RPCRequest(
+            operation: .upsertReminder,
+            id: reminder.id,
+            title: "Updated title",
+            notes: "",
+            listID: reminder.listID,
+            due: reminder.due
+        ))
+        XCTAssertNil(cleared.reminders.first { $0.id == reminder.id }?.notes)
     }
 
     func testCompletingReminderRemovesItFromSnapshot() async throws {

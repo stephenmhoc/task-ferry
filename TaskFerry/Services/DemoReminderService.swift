@@ -16,7 +16,13 @@ final class DemoReminderService: ReminderService {
                 ReminderListRecord(id: "work", title: "Work", colorHex: "0A84FF")
             ],
             reminders: [
-                ReminderRecord(id: "1", listID: "work", title: "Send the quarterly report", due: today),
+                ReminderRecord(
+                    id: "1",
+                    listID: "work",
+                    title: "Send the quarterly report",
+                    notes: "Include the revised forecast and hiring plan.",
+                    due: today
+                ),
                 ReminderRecord(id: "2", listID: "personal", title: "Renew prescription", due: today),
                 ReminderRecord(id: "3", listID: "personal", title: "Call the dentist", due: overdue),
                 ReminderRecord(id: "4", listID: "work", title: "Prepare tomorrow’s notes", due: tomorrow)
@@ -61,6 +67,9 @@ final class DemoReminderService: ReminderService {
                     throw ReminderServiceError.message("That reminder changed elsewhere. Refresh and try again.")
                 }
                 value.reminders[index].title = title
+                if let notes = request.notes {
+                    value.reminders[index].notes = notes.trimmed.isEmpty ? nil : notes
+                }
                 value.reminders[index].listID = listID
                 value.reminders[index].due = request.due
             } else {
@@ -68,6 +77,7 @@ final class DemoReminderService: ReminderService {
                     id: UUID().uuidString,
                     listID: listID,
                     title: title,
+                    notes: request.notes.flatMap { $0.trimmed.isEmpty ? nil : $0 },
                     due: request.due
                 ))
             }

@@ -236,13 +236,26 @@ final class AppState {
     }
 
     @discardableResult
-    func createReminder(title: String, listID: String, due: ReminderDue?) async -> Bool {
-        await perform(RPCRequest(operation: .upsertReminder, title: title, listID: listID, due: due))
+    func createReminder(title: String, listID: String, due: ReminderDue?, notes: String? = nil) async -> Bool {
+        await perform(RPCRequest(operation: .upsertReminder, title: title, notes: notes, listID: listID, due: due))
     }
 
     @discardableResult
-    func updateReminder(_ reminder: ReminderRecord, title: String, listID: String, due: ReminderDue?) async -> Bool {
-        await perform(RPCRequest(operation: .upsertReminder, id: reminder.id, title: title, listID: listID, due: due))
+    func updateReminder(
+        _ reminder: ReminderRecord,
+        title: String,
+        listID: String,
+        due: ReminderDue?,
+        notes: String? = nil
+    ) async -> Bool {
+        await perform(RPCRequest(
+            operation: .upsertReminder,
+            id: reminder.id,
+            title: title,
+            notes: notes,
+            listID: listID,
+            due: due
+        ))
     }
 
     @discardableResult
