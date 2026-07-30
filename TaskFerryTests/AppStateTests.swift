@@ -128,6 +128,64 @@ final class AppStateTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(40))
         XCTAssertEqual(service.snapshotCount, countAfterReset)
     }
+
+    func testDockBadgeDefaultsToTodayAndOverdue() {
+        let suiteName = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
+        let state = AppState(isDemo: false, defaults: defaults)
+        let date = DateComponents(
+            calendar: Calendar(identifier: .gregorian),
+            year: 2026,
+            month: 7,
+            day: 30,
+            hour: 12
+        ).date!
+        state.snapshot = ReminderSnapshot(
+            lists: [],
+            reminders: [
+                reminder(id: "overdue", year: 2026, month: 7, day: 29),
+                reminder(id: "today", year: 2026, month: 7, day: 30),
+                reminder(id: "tomorrow", year: 2026, month: 7, day: 31),
+                ReminderRecord(id: "no-due-date", listID: "list", title: "No due date")
+            ]
+        )
+
+        XCTAssertTrue(state.showsDockBadge)
+        XCTAssertEqual(state.dockBadgeScope, .todayAndOverdue)
+        XCTAssertEqual(state.dockBadgeCount(on: date), 2)
+    }
+
+    func testDockBadgeCanShowOnlyOverdueRemindersOrBeDisabled() {
+        let suiteName = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
+        let state = AppState(isDemo: false, defaults: defaults)
+        let date = DateComponents(
+            calendar: Calendar(identifier: .gregorian),
+            year: 2026,
+            month: 7,
+            day: 30,
+            hour: 12
+        ).date!
+        state.snapshot = ReminderSnapshot(
+            lists: [],
+            reminders: [
+                reminder(id: "overdue", year: 2026, month: 7, day: 29),
+                reminder(id: "today", year: 2026, month: 7, day: 30)
+            ]
+        )
+
+        state.setDockBadgeScope(.overdueOnly)
+        XCTAssertEqual(state.dockBadgeCount(on: date), 1)
+        XCTAssertEqual(defaults.string(forKey: AppPreferences.dockBadgeScope), DockBadgeScope.overdueOnly.rawValue)
+
+        state.setShowsDockBadge(false)
+        XCTAssertEqual(state.dockBadgeCount(on: date), 0)
+        XCTAssertFalse(defaults.bool(forKey: AppPreferences.showsDockBadge))
+    }
 }
 
 @MainActor
@@ -150,6 +208,15 @@ private final class CountingService: ReminderService {
         }
         return .empty
     }
+}
+
+private func reminder(id: String, year: Int, month: Int, day: Int) -> ReminderRecord {
+    ReminderRecord(
+        id: id,
+        listID: "list",
+        title: id,
+        due: ReminderDue(year: year, month: month, day: day)
+    )
 }
 
 private final class InMemoryCredentialStore: CredentialStore, @unchecked Sendable {

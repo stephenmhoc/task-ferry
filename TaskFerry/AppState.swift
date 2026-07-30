@@ -8,6 +8,8 @@ enum AppPreferences {
     static let port = "port"
     static let runsInBackground = "runs-in-background"
     static let cloudflareProvisioning = "cloudflare-provisioning"
+    static let showsDockBadge = "shows-dock-badge"
+    static let dockBadgeScope = "dock-badge-scope"
 }
 
 @MainActor
@@ -48,6 +50,8 @@ final class AppState {
     var cloudflareConnectorState = CloudflareConnectorState.notConfigured
     var errorMessage: String?
     var runsInBackground: Bool
+    var showsDockBadge: Bool
+    var dockBadgeScope: DockBadgeScope
 
     @ObservationIgnored private let operations = ReminderOperationCoordinator()
     @ObservationIgnored private var bridge: BridgeServer?
@@ -119,6 +123,11 @@ final class AppState {
         self.cloudflareConnector = cloudflareConnector
         self.automaticRefreshInterval = automaticRefreshInterval
         runsInBackground = demoMode ? false : defaults.bool(forKey: AppPreferences.runsInBackground)
+        showsDockBadge = defaults.object(forKey: AppPreferences.showsDockBadge) == nil
+            ? true
+            : defaults.bool(forKey: AppPreferences.showsDockBadge)
+        dockBadgeScope = defaults.string(forKey: AppPreferences.dockBadgeScope)
+            .flatMap(DockBadgeScope.init(rawValue:)) ?? .todayAndOverdue
         if demoMode {
             cachedCredentials = StoredCredentials(
                 accessClientID: "",
@@ -157,6 +166,22 @@ final class AppState {
 
     var visibleReminders: [ReminderRecord] {
         selectedView == .today ? todayReminders : tomorrowReminders
+    }
+
+    var dockBadgeCount: Int {
+        dockBadgeCount(on: Date())
+    }
+
+    func dockBadgeCount(on date: Date) -> Int {
+        guard showsDockBadge, mode != nil else { return 0 }
+        return snapshot.reminders.reduce(into: 0) { count, reminder in
+            guard let due = reminder.due else { return }
+            let isIncluded = due.isBeforeDay(date)
+                || (dockBadgeScope == .todayAndOverdue && due.isSameDay(as: date))
+            if isIncluded {
+                count += 1
+            }
+        }
     }
 
     var defaultListID: String? {
@@ -341,6 +366,20 @@ final class AppState {
             defaults.set(enabled, forKey: AppPreferences.runsInBackground)
         }
         applyActivationPolicy()
+    }
+
+    func setShowsDockBadge(_ enabled: Bool) {
+        showsDockBadge = enabled
+        if !isDemo {
+            defaults.set(enabled, forKey: AppPreferences.showsDockBadge)
+        }
+    }
+
+    func setDockBadgeScope(_ scope: DockBadgeScope) {
+        dockBadgeScope = scope
+        if !isDemo {
+            defaults.set(scope.rawValue, forKey: AppPreferences.dockBadgeScope)
+        }
     }
 
     func saveCloudflareProvisioning(_ result: CloudflareProvisioningResult) async throws {

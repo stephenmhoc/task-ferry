@@ -29,6 +29,9 @@ struct MenuRootView: View {
             guard phase == .active, state.mode != nil else { return }
             Task { await state.refresh(showLoadingIndicator: false) }
         }
+        .onChange(of: state.dockBadgeCount, initial: true) { _, count in
+            DockBadgeManager.update(count: count)
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             state.stopCloudflareConnector()
         }

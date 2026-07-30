@@ -165,6 +165,19 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Notifications") {
+                Toggle("Show reminder count on Dock icon", isOn: showsDockBadgeBinding)
+                Picker("Include", selection: dockBadgeScopeBinding) {
+                    ForEach(DockBadgeScope.allCases) { scope in
+                        Text(scope.title).tag(scope)
+                    }
+                }
+                .disabled(!state.showsDockBadge)
+                Text("The badge updates whenever Task Ferry syncs. It does not require notification permission.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("General") {
                 Toggle("Launch at Login", isOn: launchAtLoginBinding)
                     .disabled(!launchAtLoginLoaded || launchAtLoginUpdating)
@@ -280,6 +293,20 @@ struct SettingsView: View {
         Binding(
             get: { state.runsInBackground },
             set: { state.setRunsInBackground($0) }
+        )
+    }
+
+    private var showsDockBadgeBinding: Binding<Bool> {
+        Binding(
+            get: { state.showsDockBadge },
+            set: { state.setShowsDockBadge($0) }
+        )
+    }
+
+    private var dockBadgeScopeBinding: Binding<DockBadgeScope> {
+        Binding(
+            get: { state.dockBadgeScope },
+            set: { state.setDockBadgeScope($0) }
         )
     }
 

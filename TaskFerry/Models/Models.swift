@@ -13,6 +13,20 @@ enum SmartView: String, CaseIterable, Identifiable {
     var title: String { rawValue.capitalized }
 }
 
+enum DockBadgeScope: String, CaseIterable, Identifiable {
+    case todayAndOverdue
+    case overdueOnly
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .todayAndOverdue: "Today & Overdue"
+        case .overdueOnly: "Overdue Only"
+        }
+    }
+}
+
 struct ReminderDue: Codable, Hashable, Sendable {
     var year: Int
     var month: Int

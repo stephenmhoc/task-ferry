@@ -22,6 +22,14 @@ struct TaskFerryApp: App {
                     NSApplication.shared.orderFrontStandardAboutPanel()
                 }
             }
+            CommandGroup(after: .appInfo) {
+                if UpdateManager.isSupported {
+                    Button("Check for Updates…") {
+                        UpdateManager.checkForUpdates()
+                    }
+                    .disabled(!UpdateManager.canCheckForUpdates)
+                }
+            }
             CommandGroup(after: .help) {
                 Link("Task Ferry Source & License", destination: URL(string: "https://github.com/smeriwether/task-ferry")!)
             }
@@ -44,6 +52,13 @@ struct TaskFerryApp: App {
             get: { state.mode != .bridge },
             set: { _ in }
         )
+    }
+}
+
+@MainActor
+enum DockBadgeManager {
+    static func update(count: Int) {
+        NSApplication.shared.dockTile.badgeLabel = count > 0 ? String(count) : nil
     }
 }
 
