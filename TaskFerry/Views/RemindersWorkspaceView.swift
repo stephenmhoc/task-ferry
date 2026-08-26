@@ -251,7 +251,7 @@ struct RemindersWorkspaceView: View {
                     } header: {
                         HStack(spacing: 0) {
                             Color.clear
-                                .frame(width: 39, height: 1)
+                                .frame(width: 63, height: 1)
                             Text(title)
                             Spacer()
                         }
