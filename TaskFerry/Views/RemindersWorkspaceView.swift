@@ -31,6 +31,85 @@ private enum ReminderSidebarSelection: Hashable {
         case .list(let id): "list:\(id)"
         }
     }
+
+    var rowContext: ReminderRowContext {
+        switch self {
+        case .today, .tomorrow: .day
+        case .all: .all
+        case .list: .list
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .today: "sun.max.fill"
+        case .tomorrow: "moon.stars.fill"
+        case .all: "tray.full.fill"
+        case .list: "square.grid.2x2.fill"
+        }
+    }
+
+    var quickDueLabel: String? {
+        switch self {
+        case .today: "Today"
+        case .tomorrow: "Tomorrow"
+        case .all, .list: nil
+        }
+    }
+
+    var emptyTitle: String {
+        switch self {
+        case .today: "A clear day"
+        case .tomorrow: "Tomorrow is open"
+        case .all: "Nothing left to do"
+        case .list: "This list is ready"
+        }
+    }
+
+    func title(listTitle: String?) -> String {
+        switch self {
+        case .today: "Today"
+        case .tomorrow: "Tomorrow"
+        case .all: "All Tasks"
+        case .list: listTitle ?? "List"
+        }
+    }
+
+    func subtitle(today: Date, tomorrow: Date) -> String {
+        switch self {
+        case .today:
+            today.formatted(.dateTime.weekday(.wide).month(.wide).day())
+        case .tomorrow:
+            tomorrow.formatted(.dateTime.weekday(.wide).month(.wide).day())
+        case .all:
+            "Everything still open in Apple Reminders"
+        case .list:
+            "A focused project from Apple Reminders"
+        }
+    }
+
+    func color(listColorHex: String?) -> Color {
+        switch self {
+        case .today: TaskFerryPalette.coral
+        case .tomorrow: TaskFerryPalette.seaGlass
+        case .all: TaskFerryPalette.ocean
+        case .list: Color(hex: listColorHex ?? TaskFerryPalette.defaultListHex)
+        }
+    }
+
+    func quickDue(today: Date, tomorrow: Date) -> ReminderDue? {
+        switch self {
+        case .today: ReminderDue(date: today, includesTime: false)
+        case .tomorrow: ReminderDue(date: tomorrow, includesTime: false)
+        case .all, .list: nil
+        }
+    }
+}
+
+private enum ReminderRowContext {
+    case day
+    case all
+    case list
 }
 
 private struct ReminderListGroup: Identifiable {
@@ -52,12 +131,9 @@ struct RemindersWorkspaceView: View {
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var selectedReminderID: String?
     @State private var searchText = ""
-    @State private var quickTitle = ""
-    @State private var quickListID = ""
-    @State private var isAddingReminder = false
+    @State private var composerFocusRequest = 0
     @State private var listEditor: ListEditorContext?
     @State private var reminderPendingDeletion: ReminderRecord?
-    @FocusState private var quickAddFocused: Bool
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -77,15 +153,12 @@ struct RemindersWorkspaceView: View {
         .task {
             await state.refresh()
             repairSelectionIfNeeded()
-            selectDefaultListIfNeeded()
         }
         .onChange(of: storedSelection) { _, _ in
             selectedReminderID = nil
-            selectDefaultListIfNeeded()
         }
         .onChange(of: state.snapshot.lists) { _, _ in
             repairSelectionIfNeeded()
-            selectDefaultListIfNeeded()
         }
         .onChange(of: state.snapshot.reminders) { _, reminders in
             guard let selectedReminderID else { return }
@@ -94,15 +167,7 @@ struct RemindersWorkspaceView: View {
             }
         }
         .sheet(item: $listEditor) { context in
-            ListEditorSheet(state: state, context: context) { deletedList in
-                if currentSelection == .list(deletedList.id) {
-                    storedSelection = ReminderSidebarSelection.today.storageValue
-                }
-                if let selectedReminderID,
-                   state.snapshot.reminders.first(where: { $0.id == selectedReminderID })?.listID == deletedList.id {
-                    self.selectedReminderID = nil
-                }
-            }
+            ListEditorSheet(state: state, context: context)
         }
         .alert(
             "Delete Reminder?",
@@ -112,14 +177,12 @@ struct RemindersWorkspaceView: View {
             ),
             presenting: reminderPendingDeletion
         ) { reminder in
-            Button("Cancel", role: .cancel) {
-                reminderPendingDeletion = nil
-            }
+            Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {
                 delete(reminder)
             }
         } message: { reminder in
-            Text("“\(reminder.title)” will be deleted from Apple Reminders. This can’t be undone.")
+            Text(ReminderDeletionCopy.message(for: reminder.title))
         }
     }
 
@@ -160,7 +223,7 @@ struct RemindersWorkspaceView: View {
                         Text(list.title)
                             .lineLimit(1)
                         Spacer()
-                        sidebarCount(state.reminders(in: list.id).count)
+                        sidebarCount(reminderCountsByList[list.id, default: 0])
                     }
                     .tag(ReminderSidebarSelection.list(list.id))
                     .contextMenu {
@@ -225,16 +288,16 @@ struct RemindersWorkspaceView: View {
             }
 
             QuickTaskComposer(
-                title: $quickTitle,
-                selectedListID: $quickListID,
+                state: state,
+                selection: currentSelection,
                 lists: state.snapshot.lists,
                 contextTitle: displayTitle,
                 dueLabel: quickDueLabel,
-                locksList: selectedList != nil,
-                isSubmitting: isAddingReminder,
-                focused: $quickAddFocused,
-                submit: addReminder
-            )
+                lockedListID: selectedList?.id,
+                focusRequest: composerFocusRequest
+            ) { newReminderID in
+                selectedReminderID = newReminderID
+            }
         }
         .background(Color(nsColor: .textBackgroundColor))
         .navigationTitle(displayTitle)
@@ -249,9 +312,7 @@ struct RemindersWorkspaceView: View {
                     Section {
                         listGroups(bucket.listGroups)
                     } header: {
-                        HStack(spacing: 0) {
-                            Color.clear
-                                .frame(width: 27, height: 1)
+                        HStack {
                             Text(title)
                             Spacer()
                         }
@@ -272,6 +333,24 @@ struct RemindersWorkspaceView: View {
     @ViewBuilder
     private func listGroups(_ groups: [ReminderListGroup]) -> some View {
         ForEach(groups) { group in
+            if let list = group.list {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color(hex: list.colorHex))
+                        .frame(width: 6, height: 6)
+                    Text(list.title)
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .padding(.top, 6)
+                .listRowInsets(EdgeInsets(top: 0, leading: 63, bottom: 0, trailing: 24))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .accessibilityAddTraits(.isHeader)
+            }
             reminderRows(group.reminders)
         }
     }
@@ -280,7 +359,11 @@ struct RemindersWorkspaceView: View {
         ForEach(reminders) { reminder in
             VStack(spacing: 0) {
                 if selectedReminderID == reminder.id {
-                    InlineReminderEditor(state: state, reminder: reminder) {
+                    InlineReminderEditor(
+                        state: state,
+                        reminder: reminder,
+                        onDeleteRequested: { reminderPendingDeletion = reminder }
+                    ) {
                         withAnimation(.snappy(duration: 0.22)) {
                             selectedReminderID = nil
                         }
@@ -292,13 +375,8 @@ struct RemindersWorkspaceView: View {
                         state: state,
                         reminder: reminder,
                         context: rowContext,
-                        isExpanded: false,
                         onToggle: { toggleDetails(for: reminder) }
-                    ) {
-                        if selectedReminderID == reminder.id {
-                            selectedReminderID = nil
-                        }
-                    }
+                    )
                 }
 
                 Divider()
@@ -420,7 +498,7 @@ struct RemindersWorkspaceView: View {
 
     private var reminderBuckets: [ReminderBucket] {
         switch currentSelection {
-        case .today, .tomorrow:
+        case .today:
             let overdue = displayedReminders.filter { $0.due?.isBeforeDay(Date()) == true }
             let everythingElse = displayedReminders.filter { $0.due?.isBeforeDay(Date()) != true }
             var buckets: [ReminderBucket] = []
@@ -442,6 +520,12 @@ struct RemindersWorkspaceView: View {
             }
 
             return buckets
+        case .tomorrow:
+            return [ReminderBucket(
+                id: "tomorrow",
+                title: nil,
+                listGroups: groupByList(displayedReminders)
+            )]
         case .all, .list:
             return [ReminderBucket(
                 id: "tasks",
@@ -452,9 +536,9 @@ struct RemindersWorkspaceView: View {
     }
 
     private func groupByList(_ reminders: [ReminderRecord]) -> [ReminderListGroup] {
+        let remindersByList = Dictionary(grouping: reminders, by: \.listID)
         let knownGroups = state.snapshot.lists.compactMap { list -> ReminderListGroup? in
-            let matching = reminders.filter { $0.listID == list.id }
-            guard !matching.isEmpty else { return nil }
+            guard let matching = remindersByList[list.id], !matching.isEmpty else { return nil }
             return ReminderListGroup(id: list.id, list: list, reminders: matching)
         }
         let knownListIDs = Set(state.snapshot.lists.map(\.id))
@@ -464,77 +548,37 @@ struct RemindersWorkspaceView: View {
         return knownGroups + [ReminderListGroup(id: "unknown", list: nil, reminders: unknown)]
     }
 
-    private var rowContext: WorkspaceReminderRow.Context {
-        switch currentSelection {
-        case .today, .tomorrow:
-            .day
-        case .all:
-            .all
-        case .list:
-            .list
-        }
+    private var rowContext: ReminderRowContext {
+        currentSelection.rowContext
     }
 
     private var displayTitle: String {
-        switch currentSelection {
-        case .today: "Today"
-        case .tomorrow: "Tomorrow"
-        case .all: "All Tasks"
-        case .list: selectedList?.title ?? "List"
-        }
+        currentSelection.title(listTitle: selectedList?.title)
     }
 
     private var displaySubtitle: String {
-        switch currentSelection {
-        case .today:
-            Date().formatted(.dateTime.weekday(.wide).month(.wide).day())
-        case .tomorrow:
-            tomorrowDate.formatted(.dateTime.weekday(.wide).month(.wide).day())
-        case .all:
-            "Everything still open in Apple Reminders"
-        case .list:
-            "A focused project from Apple Reminders"
-        }
+        currentSelection.subtitle(today: Date(), tomorrow: tomorrowDate)
     }
 
     private var displaySymbol: String {
-        switch currentSelection {
-        case .today: "sun.max.fill"
-        case .tomorrow: "moon.stars.fill"
-        case .all: "tray.full.fill"
-        case .list: "square.grid.2x2.fill"
-        }
+        currentSelection.symbol
     }
 
     private var displayColor: Color {
-        switch currentSelection {
-        case .today: TaskFerryPalette.coral
-        case .tomorrow: TaskFerryPalette.seaGlass
-        case .all: TaskFerryPalette.ocean
-        case .list: Color(hex: selectedList?.colorHex ?? "0A69D8")
-        }
+        currentSelection.color(listColorHex: selectedList?.colorHex)
     }
 
     private var tomorrowDate: Date {
         Calendar.autoupdatingCurrent.date(byAdding: .day, value: 1, to: Date()) ?? Date()
     }
 
-    private var quickDue: ReminderDue? {
-        switch currentSelection {
-        case .today:
-            ReminderDue(date: Date(), includesTime: false)
-        case .tomorrow:
-            ReminderDue(date: tomorrowDate, includesTime: false)
-        case .all, .list:
-            nil
-        }
+    private var quickDueLabel: String? {
+        currentSelection.quickDueLabel
     }
 
-    private var quickDueLabel: String? {
-        switch currentSelection {
-        case .today: "Today"
-        case .tomorrow: "Tomorrow"
-        case .all, .list: nil
+    private var reminderCountsByList: [String: Int] {
+        state.snapshot.reminders.reduce(into: [:]) { counts, reminder in
+            counts[reminder.listID, default: 0] += 1
         }
     }
 
@@ -543,39 +587,11 @@ struct RemindersWorkspaceView: View {
             listEditor = .create
             return
         }
-        selectDefaultListIfNeeded()
-        quickAddFocused = true
-    }
-
-    private func addReminder() {
-        let cleanTitle = quickTitle.trimmed
-        guard !cleanTitle.isEmpty, !quickListID.isEmpty, !isAddingReminder else { return }
-        let previousIDs = Set(state.snapshot.reminders.map(\.id))
-        isAddingReminder = true
-
-        Task {
-            let succeeded = await state.createReminder(
-                title: cleanTitle,
-                listID: quickListID,
-                due: quickDue
-            )
-            if succeeded {
-                quickTitle = ""
-                selectedReminderID = state.snapshot.reminders.first {
-                    !previousIDs.contains($0.id)
-                }?.id
-            }
-            isAddingReminder = false
-            quickAddFocused = true
-        }
+        composerFocusRequest += 1
     }
 
     private func complete(_ reminder: ReminderRecord) {
-        Task {
-            if await state.complete(reminder), selectedReminderID == reminder.id {
-                selectedReminderID = nil
-            }
-        }
+        Task { await state.complete(reminder) }
     }
 
     private func toggleDetails(for reminder: ReminderRecord) {
@@ -586,29 +602,15 @@ struct RemindersWorkspaceView: View {
 
     private func delete(_ reminder: ReminderRecord) {
         reminderPendingDeletion = nil
-        Task {
-            if await state.deleteReminder(reminder), selectedReminderID == reminder.id {
-                selectedReminderID = nil
-            }
-        }
+        Task { await state.deleteReminder(reminder) }
     }
 
     private func refresh() {
         Task { await state.refresh(showLoadingIndicator: false) }
     }
 
-    private func selectDefaultListIfNeeded() {
-        if case .list(let id) = currentSelection,
-           state.snapshot.lists.contains(where: { $0.id == id }) {
-            quickListID = id
-            return
-        }
-        guard !state.snapshot.lists.contains(where: { $0.id == quickListID }) else { return }
-        quickListID = state.defaultListID ?? ""
-    }
-
     private func repairSelectionIfNeeded() {
-        guard case .list(let id) = currentSelection else { return }
+        guard state.hasLoadedSnapshot, case .list(let id) = currentSelection else { return }
         if !state.snapshot.lists.contains(where: { $0.id == id }) {
             storedSelection = ReminderSidebarSelection.today.storageValue
         }
@@ -616,18 +618,10 @@ struct RemindersWorkspaceView: View {
 }
 
 private struct WorkspaceReminderRow: View {
-    enum Context {
-        case day
-        case all
-        case list
-    }
-
-    @Bindable var state: AppState
+    let state: AppState
     let reminder: ReminderRecord
-    let context: Context
-    let isExpanded: Bool
+    let context: ReminderRowContext
     let onToggle: () -> Void
-    let onCompleted: () -> Void
 
     @State private var isHoveringCompletion = false
     @State private var isCompleting = false
@@ -659,7 +653,7 @@ private struct WorkspaceReminderRow: View {
                     .font(.body.weight(.medium))
                     .lineLimit(2)
 
-                if !isExpanded, let notes = reminder.notes?.trimmed, !notes.isEmpty {
+                if let notes = reminder.notes?.trimmed, !notes.isEmpty {
                     Text(notes)
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -670,7 +664,7 @@ private struct WorkspaceReminderRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+            Image(systemName: "chevron.down")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tertiary)
                 .padding(.top, 5)
@@ -679,7 +673,7 @@ private struct WorkspaceReminderRow: View {
         .padding(.vertical, 11)
         .contentShape(Rectangle())
         .onTapGesture(perform: onToggle)
-        .accessibilityAction(named: isExpanded ? "Collapse Details" : "Expand Details", onToggle)
+        .accessibilityAction(named: "Expand Details", onToggle)
     }
 
     @ViewBuilder
@@ -724,7 +718,7 @@ private struct WorkspaceReminderRow: View {
     }
 
     private var listColor: Color {
-        Color(hex: state.list(for: reminder.listID)?.colorHex ?? "0A69D8")
+        Color(hex: state.list(for: reminder.listID)?.colorHex ?? TaskFerryPalette.defaultListHex)
     }
 
     private var isOverdue: Bool {
@@ -735,9 +729,8 @@ private struct WorkspaceReminderRow: View {
         guard !isCompleting else { return }
         isCompleting = true
         Task {
-            if await state.complete(reminder) {
-                onCompleted()
-            } else {
+            let succeeded = await state.complete(reminder)
+            if !succeeded {
                 isCompleting = false
             }
         }
@@ -745,15 +738,19 @@ private struct WorkspaceReminderRow: View {
 }
 
 private struct QuickTaskComposer: View {
-    @Binding var title: String
-    @Binding var selectedListID: String
+    let state: AppState
+    let selection: ReminderSidebarSelection
     let lists: [ReminderListRecord]
     let contextTitle: String
     let dueLabel: String?
-    let locksList: Bool
-    let isSubmitting: Bool
-    var focused: FocusState<Bool>.Binding
-    let submit: () -> Void
+    let lockedListID: String?
+    let focusRequest: Int
+    let onCreated: (String?) -> Void
+
+    @State private var title = ""
+    @State private var selectedListID = ""
+    @State private var isSubmitting = false
+    @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -765,7 +762,7 @@ private struct QuickTaskComposer: View {
 
             TextField("New task in \(contextTitle)", text: $title)
                 .textFieldStyle(.plain)
-                .focused(focused)
+                .focused($focused)
                 .onSubmit(submit)
                 .disabled(isSubmitting)
                 .accessibilityHint("Press Return to add the reminder")
@@ -779,7 +776,7 @@ private struct QuickTaskComposer: View {
                     .background(Color(nsColor: .controlBackgroundColor), in: Capsule())
             }
 
-            if locksList {
+            if lockedListID != nil {
                 listLabel
             } else {
                 Menu {
@@ -808,6 +805,13 @@ private struct QuickTaskComposer: View {
         .padding(.vertical, 12)
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
+        .task { selectDefaultListIfNeeded() }
+        .onChange(of: lists) { _, _ in selectDefaultListIfNeeded() }
+        .onChange(of: selection) { _, _ in selectDefaultListIfNeeded() }
+        .onChange(of: focusRequest) { _, _ in
+            selectDefaultListIfNeeded()
+            focused = true
+        }
     }
 
     private var listLabel: some View {
@@ -823,15 +827,60 @@ private struct QuickTaskComposer: View {
     }
 
     private var selectedListTitle: String {
-        lists.first { $0.id == selectedListID }?.title ?? "List"
+        lists.first { $0.id == effectiveListID }?.title ?? "List"
     }
 
     private var selectedListColor: Color {
-        Color(hex: lists.first { $0.id == selectedListID }?.colorHex ?? "0A69D8")
+        Color(hex: lists.first { $0.id == effectiveListID }?.colorHex ?? TaskFerryPalette.defaultListHex)
     }
 
     private var canSubmit: Bool {
-        !isSubmitting && !title.trimmed.isEmpty && !selectedListID.isEmpty
+        !isSubmitting && !title.trimmed.isEmpty && !effectiveListID.isEmpty
+    }
+
+    private var effectiveListID: String {
+        lockedListID ?? selectedListID
+    }
+
+    private var due: ReminderDue? {
+        let today = Date()
+        let tomorrow = Calendar.autoupdatingCurrent.date(byAdding: .day, value: 1, to: today) ?? today
+        return selection.quickDue(today: today, tomorrow: tomorrow)
+    }
+
+    private func selectDefaultListIfNeeded() {
+        if let lockedListID, lists.contains(where: { $0.id == lockedListID }) {
+            selectedListID = lockedListID
+            return
+        }
+        guard !lists.contains(where: { $0.id == selectedListID }) else { return }
+        selectedListID = state.defaultListID ?? lists.first?.id ?? ""
+    }
+
+    private func submit() {
+        let cleanTitle = title.trimmed
+        let listID = effectiveListID
+        guard !cleanTitle.isEmpty, !listID.isEmpty, !isSubmitting else { return }
+        let previousIDs = Set(state.snapshot.reminders.map(\.id))
+        let pendingDue = due
+        isSubmitting = true
+
+        Task {
+            let succeeded = await state.createReminder(
+                title: cleanTitle,
+                listID: listID,
+                due: pendingDue
+            )
+            if succeeded {
+                title = ""
+                let newReminderID = state.snapshot.reminders.first {
+                    !previousIDs.contains($0.id)
+                }?.id
+                onCreated(newReminderID)
+            }
+            isSubmitting = false
+            focused = true
+        }
     }
 }
 
@@ -870,12 +919,7 @@ private struct EmptyWorkspaceView: View {
 
     private var title: String {
         if isSearching { return "No matching tasks" }
-        return switch selection {
-        case .today: "A clear day"
-        case .tomorrow: "Tomorrow is open"
-        case .all: "Nothing left to do"
-        case .list: "This list is ready"
-        }
+        return selection.emptyTitle
     }
 
     private var message: String {

@@ -18,6 +18,8 @@ concurrency:
 
 jobs:
   release:
+    env:
+      RELEASE_NOTES: "A more dependable Mac workspace with visible list grouping, safer saved selections, faster task entry, simpler task editing, reliable window reopening, and a first-class Refresh Reminders command (Command-R)."
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -76,7 +78,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           BUILD_NUMBER: ${{ github.run_number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          RELEASE_NOTES_HTML: "<p>A redesigned Mac workspace with a collapsible sidebar, list filters, task sections aligned with their completion controls, and a simpler inline task editor.</p>"
         run: scripts/release.sh "$VERSION"
 
       - name: Publish GitHub release
@@ -89,4 +90,4 @@ jobs:
             "build/release/TaskFerry-$VERSION.zip" \
             "build/release/appcast.xml" \
             --title "Task Ferry $VERSION" \
-            --notes "A redesigned Mac workspace with a collapsible sidebar, list filters, task sections aligned with their completion controls, and a simpler inline task editor. Download TaskFerry.dmg and drag Task Ferry to Applications."
+            --notes "$RELEASE_NOTES Download TaskFerry.dmg and drag Task Ferry to Applications."

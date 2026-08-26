@@ -2,12 +2,18 @@ import SwiftUI
 
 extension Color {
     init(hex: String) {
-        let value = Int(hex, radix: 16) ?? 0x5E5CE6
+        let value = Int(hex, radix: 16) ?? 0x0A69D8
         self.init(
             red: Double((value >> 16) & 0xFF) / 255,
             green: Double((value >> 8) & 0xFF) / 255,
             blue: Double(value & 0xFF) / 255
         )
+    }
+}
+
+enum ReminderDeletionCopy {
+    static func message(for title: String) -> String {
+        "“\(title)” will be deleted from Apple Reminders. This can’t be undone."
     }
 }
 

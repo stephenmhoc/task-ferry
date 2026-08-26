@@ -1,6 +1,11 @@
 import AppKit
 import SwiftUI
 
+enum TaskFerryWindowID {
+    static let mainScene = "main"
+    static let mainWindow = NSUserInterfaceItemIdentifier("TaskFerry.main")
+}
+
 @main
 struct TaskFerryApp: App {
     @NSApplicationDelegateAdaptor(TaskFerryApplicationDelegate.self) private var appDelegate
@@ -11,7 +16,7 @@ struct TaskFerryApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Task Ferry", id: "main") {
+        WindowGroup("Task Ferry", id: TaskFerryWindowID.mainScene) {
             MenuRootView(state: state)
         }
         .defaultSize(width: 1_180, height: 700)
@@ -96,13 +101,13 @@ private struct TaskFerryCommands: Commands {
             .disabled(newReminderAction == nil)
 
             Button("New Window") {
-                openWindow(id: "main")
+                openWindow(id: TaskFerryWindowID.mainScene)
             }
             .keyboardShortcut("n", modifiers: [.control, .command])
         }
 
         CommandMenu("Tasks") {
-            Button("Refresh") {
+            Button("Refresh Reminders") {
                 refreshRemindersAction?.perform()
             }
             .keyboardShortcut("r", modifiers: .command)
@@ -127,37 +132,33 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
                 NSApplication.shared.windows.forEach { $0.orderOut(nil) }
             }
         } else {
+            NSApplication.shared.setActivationPolicy(.regular)
+            // Reveal SwiftUI's registered main window without trying to create a second one.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                self.showOrCreateMainWindow(in: NSApplication.shared, activate: false)
+                self.showMainWindowIfAvailable(in: NSApplication.shared, activate: true)
             }
         }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         guard !hasVisibleWindows else { return true }
-        showOrCreateMainWindow(in: sender, activate: true)
-        return true
+        guard showMainWindowIfAvailable(in: sender, activate: true) else {
+            return true
+        }
+        return false
     }
 
-    private func showOrCreateMainWindow(in application: NSApplication, activate: Bool) {
-        let mainWindow = application.windows.first {
-            $0.identifier?.rawValue.contains("MenuRootView") == true
-        } ?? application.windows.first(where: \.canBecomeMain)
-
-        if let mainWindow {
-            mainWindow.makeKeyAndOrderFront(nil)
-        } else if let newWindowItem = application.mainMenu?
-            .item(withTitle: "File")?
-            .submenu?
-            .item(withTitle: "New Window"),
-                  newWindowItem.isEnabled,
-                  let action = newWindowItem.action {
-            application.sendAction(action, to: newWindowItem.target, from: newWindowItem)
+    @discardableResult
+    private func showMainWindowIfAvailable(in application: NSApplication, activate: Bool) -> Bool {
+        guard let mainWindow = application.windows.first(where: { $0.identifier == TaskFerryWindowID.mainWindow }) else {
+            return false
         }
+        mainWindow.makeKeyAndOrderFront(nil)
 
         if activate {
             application.activate(ignoringOtherApps: true)
         }
+        return true
     }
 
     private var shouldRunHidden: Bool {

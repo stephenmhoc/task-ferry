@@ -44,7 +44,7 @@ final class AppState {
 
     var mode: AppMode?
     var snapshot = ReminderSnapshot.empty
-    var selectedView = SmartView.today
+    private(set) var hasLoadedSnapshot = false
     var connectionState = ConnectionState.idle
     var bridgeState = BridgeServer.State.stopped
     var cloudflareConnectorState = CloudflareConnectorState.notConfigured
@@ -168,10 +168,6 @@ final class AppState {
         snapshot.reminders.sorted(by: sortReminders)
     }
 
-    var visibleReminders: [ReminderRecord] {
-        selectedView == .today ? todayReminders : tomorrowReminders
-    }
-
     var dockBadgeCount: Int {
         dockBadgeCount(on: Date())
     }
@@ -243,6 +239,7 @@ final class AppState {
         isStarted = false
         mode = nil
         snapshot = .empty
+        hasLoadedSnapshot = false
         connectionState = .idle
         clearError()
         defaults.removeObject(forKey: AppPreferences.mode)
@@ -589,6 +586,7 @@ final class AppState {
         switch outcome {
         case .success(let snapshot):
             self.snapshot = snapshot
+            hasLoadedSnapshot = true
             connectionState = .connected
             if clearAllErrorsOnSuccess || errorSource == source {
                 clearError()

@@ -55,6 +55,7 @@ final class AppStateTests: XCTestCase {
             credentialStore: credentials,
             serviceFactory: factory
         )
+        XCTAssertFalse(state.hasLoadedSnapshot)
         await state.start()
 
         let mutationSucceeded = await state.createList(title: "Will fail")
@@ -63,7 +64,35 @@ final class AppStateTests: XCTestCase {
 
         let refreshSucceeded = await state.refresh(showLoadingIndicator: false)
         XCTAssertTrue(refreshSucceeded)
+        XCTAssertTrue(state.hasLoadedSnapshot)
         XCTAssertEqual(state.errorMessage, "Mutation failed")
+    }
+
+    func testFailedFirstRefreshDoesNotMarkSnapshotAsLoaded() async {
+        let suiteName = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
+        defaults.set("https://example.com", forKey: AppPreferences.endpoint)
+        let credentials = InMemoryCredentialStore(values: ["bridge-token": "TEST-TOKEN"])
+        let service = SnapshotFailingService()
+        let factory = ReminderServiceFactory(
+            makeBridgeService: { service },
+            makeRemoteService: { _ in service },
+            makeBridgeServer: { BridgeServer(operations: $0, token: $1) }
+        )
+        let state = AppState(
+            isDemo: false,
+            defaults: defaults,
+            credentialStore: credentials,
+            serviceFactory: factory
+        )
+
+        let refreshSucceeded = await state.refresh()
+
+        XCTAssertFalse(refreshSucceeded)
+        XCTAssertFalse(state.hasLoadedSnapshot)
+        XCTAssertEqual(state.connectionState, .failed)
     }
 
     func testCredentialReadsAreDeferredOffTheMainThread() async {
@@ -217,6 +246,13 @@ private final class MutationFailingService: ReminderService {
             throw ReminderServiceError.message("Mutation failed")
         }
         return .empty
+    }
+}
+
+@MainActor
+private final class SnapshotFailingService: ReminderService {
+    func execute(_ request: RPCRequest) async throws -> ReminderSnapshot {
+        throw ReminderServiceError.message("Snapshot failed")
     }
 }
 

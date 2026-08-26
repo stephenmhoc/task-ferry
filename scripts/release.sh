@@ -87,7 +87,7 @@ SIGNATURE="$(sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p' <<< "$SIGN_OUTP
 SIZE="$(stat -f%z "$ZIP")"
 [[ -n "$SIGNATURE" ]] || { echo "Sparkle signature was not produced" >&2; exit 1; }
 
-NOTES="${RELEASE_NOTES_HTML:-<p>Bug fixes and improvements.</p>}"
+NOTES="<p>${RELEASE_NOTES:-Bug fixes and improvements.}</p>"
 cat > "$BUILD_ROOT/appcast.xml" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">

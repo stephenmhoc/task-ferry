@@ -21,9 +21,8 @@ enum ListEditorContext: Identifiable {
 
 struct ListEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Bindable var state: AppState
+    let state: AppState
     let context: ListEditorContext
-    let onDeleted: (ReminderListRecord) -> Void
 
     @State private var title: String
     @State private var isSaving = false
@@ -31,14 +30,9 @@ struct ListEditorSheet: View {
     @State private var confirmingDelete = false
     @FocusState private var titleIsFocused: Bool
 
-    init(
-        state: AppState,
-        context: ListEditorContext,
-        onDeleted: @escaping (ReminderListRecord) -> Void
-    ) {
+    init(state: AppState, context: ListEditorContext) {
         self.state = state
         self.context = context
-        self.onDeleted = onDeleted
         _title = State(initialValue: context.list?.title ?? "")
     }
 
@@ -109,7 +103,7 @@ struct ListEditorSheet: View {
     }
 
     private var accentColor: Color {
-        Color(hex: context.list?.colorHex ?? "0A69D8")
+        Color(hex: context.list?.colorHex ?? TaskFerryPalette.defaultListHex)
     }
 
     private func save() {
@@ -137,7 +131,6 @@ struct ListEditorSheet: View {
         isDeleting = true
         Task {
             if await state.deleteList(list) {
-                onDeleted(list)
                 dismiss()
             } else {
                 isDeleting = false

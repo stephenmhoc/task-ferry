@@ -5,14 +5,6 @@ enum AppMode: String, Codable, CaseIterable {
     case remote
 }
 
-enum SmartView: String, CaseIterable, Identifiable {
-    case today
-    case tomorrow
-
-    var id: Self { self }
-    var title: String { rawValue.capitalized }
-}
-
 enum DockBadgeScope: String, CaseIterable, Identifiable {
     case todayAndOverdue
     case overdueOnly

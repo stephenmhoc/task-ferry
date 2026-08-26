@@ -1,19 +1,14 @@
 import SwiftUI
 
 struct InlineReminderEditor: View {
-    private struct Draft: Hashable {
-        var title: String
-        var notes: String
-        var listID: String
-        var due: ReminderDue?
-
-        var isValid: Bool {
-            !title.trimmed.isEmpty && !listID.isEmpty
-        }
+    private enum PendingAction {
+        case saving
+        case completing
     }
 
-    @Bindable var state: AppState
+    let state: AppState
     let reminder: ReminderRecord
+    let onDeleteRequested: () -> Void
     let onClose: () -> Void
 
     @State private var title: String
@@ -22,13 +17,17 @@ struct InlineReminderEditor: View {
     @State private var hasDue: Bool
     @State private var dueDate: Date
     @State private var includesTime: Bool
-    @State private var confirmingDelete = false
-    @State private var isPerformingAction = false
-    @State private var isCompleting = false
+    @State private var pendingAction: PendingAction?
 
-    init(state: AppState, reminder: ReminderRecord, onClose: @escaping () -> Void) {
+    init(
+        state: AppState,
+        reminder: ReminderRecord,
+        onDeleteRequested: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
         self.state = state
         self.reminder = reminder
+        self.onDeleteRequested = onDeleteRequested
         self.onClose = onClose
 
         let initialDue = reminder.due
@@ -54,31 +53,25 @@ struct InlineReminderEditor: View {
                         .buttonStyle(.borderedProminent)
                         .tint(TaskFerryPalette.ocean)
                         .keyboardShortcut(.return, modifiers: .command)
-                        .disabled(!draft.isValid || isPerformingAction || isCompleting)
+                        .disabled(!isValid || isBusy)
 
                     Button("Delete…", role: .destructive) {
-                        confirmingDelete = true
+                        onDeleteRequested()
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
-                    .disabled(isPerformingAction || isCompleting)
+                    .disabled(isBusy)
 
                     Button("Cancel", action: cancelEditing)
                         .buttonStyle(.bordered)
                         .keyboardShortcut(.cancelAction)
-                        .disabled(isPerformingAction || isCompleting)
+                        .disabled(isBusy)
                 }
                 .controlSize(.small)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 11)
-        .alert("Delete this reminder?", isPresented: $confirmingDelete) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive, action: deleteReminder)
-        } message: {
-            Text("“\(reminder.title)” will be deleted from Apple Reminders. This can’t be undone.")
-        }
     }
 
     private var completionButton: some View {
@@ -87,7 +80,7 @@ struct InlineReminderEditor: View {
                 Circle()
                     .stroke(accentColor, lineWidth: 1.7)
                     .frame(width: 19, height: 19)
-                if isCompleting {
+                if pendingAction == .completing {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(accentColor)
@@ -99,7 +92,7 @@ struct InlineReminderEditor: View {
         .buttonStyle(.plain)
         .help("Mark as Complete")
         .accessibilityLabel("Complete \(reminder.title)")
-        .disabled(isCompleting || isPerformingAction)
+        .disabled(isBusy)
     }
 
     private var titleControl: some View {
@@ -173,62 +166,57 @@ struct InlineReminderEditor: View {
     }
 
     private var accentColor: Color {
-        Color(hex: selectedList?.colorHex ?? "0A69D8")
+        Color(hex: selectedList?.colorHex ?? TaskFerryPalette.defaultListHex)
     }
 
     private var due: ReminderDue? {
         hasDue ? ReminderDue(date: dueDate, includesTime: includesTime) : nil
     }
 
-    private var draft: Draft {
-        Draft(title: title, notes: notes, listID: listID, due: due)
+    private var isValid: Bool {
+        !title.trimmed.isEmpty && !listID.isEmpty
+    }
+
+    private var isBusy: Bool {
+        pendingAction != nil
     }
 
     private func saveReminder() {
-        let pendingDraft = draft
-        guard pendingDraft.isValid, !isPerformingAction, !isCompleting else { return }
-        isPerformingAction = true
+        guard isValid, !isBusy else { return }
+        let pendingTitle = title.trimmed
+        let pendingNotes = notes
+        let pendingListID = listID
+        let pendingDue = due
+        pendingAction = .saving
 
         Task {
             if await state.updateReminder(
                 reminder,
-                title: pendingDraft.title.trimmed,
-                listID: pendingDraft.listID,
-                due: pendingDraft.due,
-                notes: pendingDraft.notes.trimmed.isEmpty ? "" : pendingDraft.notes
+                title: pendingTitle,
+                listID: pendingListID,
+                due: pendingDue,
+                notes: pendingNotes
             ) {
                 onClose()
             } else {
-                isPerformingAction = false
+                pendingAction = nil
             }
         }
     }
 
     private func cancelEditing() {
-        guard !isPerformingAction, !isCompleting else { return }
+        guard !isBusy else { return }
         onClose()
     }
 
-    private func deleteReminder() {
-        guard !isPerformingAction else { return }
-        isPerformingAction = true
-        Task {
-            if await state.deleteReminder(reminder) {
-                onClose()
-            } else {
-                isPerformingAction = false
-            }
-        }
-    }
-
     private func completeReminder() {
-        guard !isCompleting, !isPerformingAction else { return }
-        isCompleting = true
+        guard !isBusy else { return }
+        pendingAction = .completing
         Task {
             if await state.complete(reminder) {
                 onClose()
             } else {
-                isCompleting = false
+                pendingAction = nil
             }
         }
     }

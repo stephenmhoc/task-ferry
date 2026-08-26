@@ -11,9 +11,7 @@
 		03D85DB50A0167E0E0361009 /* TaskFerryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6CB77C66C0D9D02A5CE4FBD /* TaskFerryApp.swift */; };
 		07C7D422EC5FE4EE51F3FBC8 /* CloudflareModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14931A8D7EE4CFA217D04514 /* CloudflareModels.swift */; };
 		0AE39A8C6052D8549BC5D91A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3B0CAE150460FCEF57F1476C /* Assets.xcassets */; };
-		0F3873FBDA10DEB308BFD987 /* ReminderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BC6BE55566C76FCF4FC4E8C /* ReminderRow.swift */; };
 		1038DA6E95E524F84B539FB9 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089F88EF1D818C5FAA3BCBED /* Models.swift */; };
-		1141076F69A6BE9F85CA4B04 /* ReminderEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3992FA5AD11BDDB7451510F /* ReminderEditorView.swift */; };
 		125DA0BE7D79D586EF8F4AD8 /* EventKitReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E81B612719438FCA73F950 /* EventKitReminderService.swift */; };
 		1AF06B81E5CD3ED2288CC848 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4B236A4AD5F5AFF69F2FA19 /* KeychainStore.swift */; };
 		2758D8D63208F994FB8C4218 /* DemoReminderServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0862A6022F701A784D25BD47 /* DemoReminderServiceTests.swift */; };
@@ -29,7 +27,6 @@
 		55C7A0722A9A58FF97E6C702 /* RemoteConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F507EC0C94EEC57C2551AB71 /* RemoteConfiguration.swift */; };
 		577B7095F8D46939D2093AA7 /* RemoteConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAEB6CE963CBCE4C64D6BD6 /* RemoteConfigurationTests.swift */; };
 		59A182624B1D47885EB65699 /* CloudflareSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0EB6D5A1517A666AC25788 /* CloudflareSetupView.swift */; };
-		5A9EC5E9DA55369530B6B4C3 /* ListsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B23E85BC6AE98E43816C69 /* ListsView.swift */; };
 		5ECDE37D0A09C19EDB9E7688 /* ReminderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F88C908376F5B52C56E1F9B /* ReminderDetailView.swift */; };
 		60139F50181F73F7F9C34D5B /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A48421F551E6D43793CFE8E /* UpdateManager.swift */; };
 		611CA3FB9E6CA3C3D09A43E2 /* ReminderOperationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6988989C67F49EDDEF55A2 /* ReminderOperationCoordinator.swift */; };
@@ -98,14 +95,12 @@
 		5BF6290C6B74AEC75C990D52 /* MenuRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRootView.swift; sourceTree = "<group>"; };
 		5E8F21B5DE1B27F9ED4DC03C /* cloudflared */ = {isa = PBXFileReference; path = cloudflared; sourceTree = "<group>"; };
 		64F546C3E708667FF321FD0F /* ListEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListEditorSheet.swift; sourceTree = "<group>"; };
-		65B23E85BC6AE98E43816C69 /* ListsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListsView.swift; sourceTree = "<group>"; };
 		6CE2147564AB064353F50CA0 /* TaskFerry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TaskFerry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A35921E8BB4328C52C89308 /* RemoteReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteReminderService.swift; sourceTree = "<group>"; };
 		7BA43021B55744BC69F34B30 /* RemindersWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersWorkspaceView.swift; sourceTree = "<group>"; };
 		7C7F811C8F527C18E0C0ACFF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		83EC11A6BDE300EF3C284C27 /* CloudflareTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareTests.swift; sourceTree = "<group>"; };
 		8B65434108D6E8108BD12A74 /* QuickEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickEntryView.swift; sourceTree = "<group>"; };
-		9BC6BE55566C76FCF4FC4E8C /* ReminderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderRow.swift; sourceTree = "<group>"; };
 		9D97A5F95CA51751BE9EC7F2 /* cloudflared-LICENSE */ = {isa = PBXFileReference; path = "cloudflared-LICENSE"; sourceTree = "<group>"; };
 		9EDFF46F3B1E234ACE1B9D97 /* CloudflareAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareAPIClient.swift; sourceTree = "<group>"; };
 		9F6988989C67F49EDDEF55A2 /* ReminderOperationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderOperationCoordinator.swift; sourceTree = "<group>"; };
@@ -113,7 +108,6 @@
 		A61CE4D480A804C09D970DAB /* Info-Direct.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Info-Direct.plist"; sourceTree = "<group>"; };
 		AC41129763EBE01D6A625BBD /* ReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderService.swift; sourceTree = "<group>"; };
 		B15D7D2F904CFB4AD3407593 /* ReminderOperationCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderOperationCoordinatorTests.swift; sourceTree = "<group>"; };
-		B3992FA5AD11BDDB7451510F /* ReminderEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderEditorView.swift; sourceTree = "<group>"; };
 		BCD6BCBB679D119D6A82AFD5 /* CredentialStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStoreTests.swift; sourceTree = "<group>"; };
 		C6CB77C66C0D9D02A5CE4FBD /* TaskFerryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFerryApp.swift; sourceTree = "<group>"; };
 		C890C6B4795075390038A326 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -202,13 +196,10 @@
 			children = (
 				DA0EB6D5A1517A666AC25788 /* CloudflareSetupView.swift */,
 				64F546C3E708667FF321FD0F /* ListEditorSheet.swift */,
-				65B23E85BC6AE98E43816C69 /* ListsView.swift */,
 				5BF6290C6B74AEC75C990D52 /* MenuRootView.swift */,
 				8B65434108D6E8108BD12A74 /* QuickEntryView.swift */,
 				4F88C908376F5B52C56E1F9B /* ReminderDetailView.swift */,
-				B3992FA5AD11BDDB7451510F /* ReminderEditorView.swift */,
 				CD8477AD2D1D161E619CACA2 /* ReminderPresentation.swift */,
-				9BC6BE55566C76FCF4FC4E8C /* ReminderRow.swift */,
 				7BA43021B55744BC69F34B30 /* RemindersWorkspaceView.swift */,
 				C890C6B4795075390038A326 /* SettingsView.swift */,
 				D4C2A03A5876B98B51FB3ED2 /* TaskFerryTheme.swift */,
@@ -388,15 +379,12 @@
 				125DA0BE7D79D586EF8F4AD8 /* EventKitReminderService.swift in Sources */,
 				1AF06B81E5CD3ED2288CC848 /* KeychainStore.swift in Sources */,
 				AFA58BD43FDE8A083FC67AB1 /* ListEditorSheet.swift in Sources */,
-				5A9EC5E9DA55369530B6B4C3 /* ListsView.swift in Sources */,
 				29513C903C9A522C30F14C3E /* MenuRootView.swift in Sources */,
 				1038DA6E95E524F84B539FB9 /* Models.swift in Sources */,
 				4EAC55537DF9CE105F6647E6 /* QuickEntryView.swift in Sources */,
 				5ECDE37D0A09C19EDB9E7688 /* ReminderDetailView.swift in Sources */,
-				1141076F69A6BE9F85CA4B04 /* ReminderEditorView.swift in Sources */,
 				611CA3FB9E6CA3C3D09A43E2 /* ReminderOperationCoordinator.swift in Sources */,
 				635F25F0AA2AD2FB3D605B65 /* ReminderPresentation.swift in Sources */,
-				0F3873FBDA10DEB308BFD987 /* ReminderRow.swift in Sources */,
 				385A5F1D577D4B3156E0A10F /* ReminderService.swift in Sources */,
 				6C0229996D94D09A067DE55B /* RemindersWorkspaceView.swift in Sources */,
 				55C7A0722A9A58FF97E6C702 /* RemoteConfiguration.swift in Sources */,
@@ -491,7 +479,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.13;
+				MARKETING_VERSION = 0.1.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -570,7 +558,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.13;
+				MARKETING_VERSION = 0.1.14;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -731,7 +719,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.13;
+				MARKETING_VERSION = 0.1.14;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
