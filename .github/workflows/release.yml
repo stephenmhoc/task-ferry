@@ -76,6 +76,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           BUILD_NUMBER: ${{ github.run_number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_NOTES_HTML: "<p>A redesigned Mac workspace with a collapsible sidebar, list filters, grouped task sections, and a simpler inline task editor.</p>"
         run: scripts/release.sh "$VERSION"
 
       - name: Publish GitHub release
@@ -88,4 +89,4 @@ jobs:
             "build/release/TaskFerry-$VERSION.zip" \
             "build/release/appcast.xml" \
             --title "Task Ferry $VERSION" \
-            --notes "Reliability, security, and test coverage improvements. Download TaskFerry.dmg and drag Task Ferry to Applications."
+            --notes "A redesigned Mac workspace with a collapsible sidebar, list filters, grouped task sections, and a simpler inline task editor. Download TaskFerry.dmg and drag Task Ferry to Applications."

@@ -186,6 +186,28 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.dockBadgeCount(on: date), 0)
         XCTAssertFalse(defaults.bool(forKey: AppPreferences.showsDockBadge))
     }
+
+    func testAllRemindersSortsDatedTasksBeforeUndatedTasks() {
+        let suiteName = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
+        let state = AppState(isDemo: false, defaults: defaults)
+        state.snapshot = ReminderSnapshot(
+            lists: [],
+            reminders: [
+                ReminderRecord(id: "undated-z", listID: "list", title: "Zulu"),
+                reminder(id: "later", year: 2026, month: 8, day: 2),
+                ReminderRecord(id: "undated-a", listID: "list", title: "Alpha"),
+                reminder(id: "earlier", year: 2026, month: 8, day: 1)
+            ]
+        )
+
+        XCTAssertEqual(
+            state.allReminders.map(\.id),
+            ["earlier", "later", "undated-a", "undated-z"]
+        )
+    }
 }
 
 @MainActor

@@ -6,21 +6,19 @@ struct MenuRootView: View {
     @Bindable var state: AppState
 
     var body: some View {
-        NavigationStack {
-            Group {
-                switch state.mode {
-                case nil:
-                    SetupView(state: state)
-                case .bridge:
-                    BridgeView(state: state)
-                case .remote:
-                    RemindersView(state: state)
-                }
+        Group {
+            switch state.mode {
+            case nil:
+                SetupView(state: state)
+            case .bridge:
+                BridgeView(state: state)
+            case .remote:
+                RemindersWorkspaceView(state: state)
             }
-            .frame(minWidth: 400, minHeight: 540)
         }
+        .frame(minWidth: minimumWidth, minHeight: 540)
         .background(Color(nsColor: .windowBackgroundColor))
-        .background(WindowMinimumSize(width: 400, height: 540))
+        .background(WindowMinimumSize(width: minimumWidth, height: 540))
         .task {
             await state.start()
             state.applyActivationPolicy()
@@ -35,6 +33,10 @@ struct MenuRootView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             state.stopCloudflareConnector()
         }
+    }
+
+    private var minimumWidth: CGFloat {
+        state.mode == .remote ? 920 : 400
     }
 }
 

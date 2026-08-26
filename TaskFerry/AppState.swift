@@ -164,6 +164,10 @@ final class AppState {
         return snapshot.reminders.filter { $0.due?.isSameDay(as: tomorrow) == true }.sorted(by: sortReminders)
     }
 
+    var allReminders: [ReminderRecord] {
+        snapshot.reminders.sorted(by: sortReminders)
+    }
+
     var visibleReminders: [ReminderRecord] {
         selectedView == .today ? todayReminders : tomorrowReminders
     }
@@ -614,8 +618,13 @@ final class AppState {
         switch (lhs.due?.date(), rhs.due?.date()) {
         case let (left?, right?) where left != right:
             return left < right
+        case (_?, nil):
+            return true
+        case (nil, _?):
+            return false
         default:
-            return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            let titleOrder = lhs.title.localizedCaseInsensitiveCompare(rhs.title)
+            return titleOrder == .orderedSame ? lhs.id < rhs.id : titleOrder == .orderedAscending
         }
     }
 }
