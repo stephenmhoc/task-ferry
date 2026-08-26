@@ -19,7 +19,7 @@ concurrency:
 jobs:
   release:
     env:
-      RELEASE_NOTES: "A more dependable Mac workspace with visible list grouping, safer saved selections, faster task entry, simpler task editing, reliable window reopening, and a first-class Refresh Reminders command (Command-R)."
+      RELEASE_NOTES: "Clearer list section headers with color accents and task counts, plus a more compact resizable workspace."
     runs-on: macos-15
     timeout-minutes: 45
     steps:

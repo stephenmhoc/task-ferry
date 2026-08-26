@@ -248,7 +248,7 @@ struct RemindersWorkspaceView: View {
         }
         .listStyle(.sidebar)
         .navigationTitle("Task Ferry")
-        .navigationSplitViewColumnWidth(min: 185, ideal: 215, max: 260)
+        .navigationSplitViewColumnWidth(min: 170, ideal: 205, max: 260)
         .toolbar {
             if columnVisibility != .detailOnly {
                 ToolbarItem(placement: .primaryAction) {
@@ -301,7 +301,7 @@ struct RemindersWorkspaceView: View {
         }
         .background(Color(nsColor: .textBackgroundColor))
         .navigationTitle(displayTitle)
-        .navigationSplitViewColumnWidth(min: 560, ideal: 820, max: 1_200)
+        .navigationSplitViewColumnWidth(min: 480, ideal: 820, max: 1_200)
         .searchable(text: $searchText, prompt: "Search this view")
     }
 
@@ -334,25 +334,47 @@ struct RemindersWorkspaceView: View {
     private func listGroups(_ groups: [ReminderListGroup]) -> some View {
         ForEach(groups) { group in
             if let list = group.list {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Color(hex: list.colorHex))
-                        .frame(width: 6, height: 6)
-                    Text(list.title)
-                        .lineLimit(1)
-                    Spacer()
-                }
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .padding(.top, 6)
-                .listRowInsets(EdgeInsets(top: 0, leading: 63, bottom: 0, trailing: 24))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .accessibilityAddTraits(.isHeader)
+                listGroupHeader(list, count: group.reminders.count)
             }
             reminderRows(group.reminders)
         }
+    }
+
+    private func listGroupHeader(_ list: ReminderListRecord, count: Int) -> some View {
+        let listColor = Color(hex: list.colorHex)
+
+        return HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(listColor)
+                .frame(width: 3, height: 14)
+
+            Text(list.title)
+                .lineLimit(1)
+
+            Spacer()
+
+            Text("\(count)")
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.tertiary)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .textCase(.uppercase)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Color(nsColor: .controlBackgroundColor).opacity(0.72),
+            in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.45), lineWidth: 0.5)
+        }
+        .listRowInsets(EdgeInsets(top: 10, leading: 24, bottom: 2, trailing: 24))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 
     private func reminderRows(_ reminders: [ReminderRecord]) -> some View {

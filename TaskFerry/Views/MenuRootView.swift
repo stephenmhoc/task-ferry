@@ -36,7 +36,7 @@ struct MenuRootView: View {
     }
 
     private var minimumWidth: CGFloat {
-        state.mode == .remote ? 920 : 400
+        state.mode == .remote ? 800 : 400
     }
 }
 
