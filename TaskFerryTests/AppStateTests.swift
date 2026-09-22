@@ -19,7 +19,8 @@ final class AppStateTests: XCTestCase {
             isDemo: false,
             defaults: defaults,
             credentialStore: credentials,
-            serviceFactory: factory
+            serviceFactory: factory,
+            snapshotCache: .disabled
         )
         let code = try TaskFerryConnectionCode(
             endpoint: "https://task-ferry.example.com",
@@ -31,9 +32,10 @@ final class AppStateTests: XCTestCase {
         try await state.saveConnectionCode("\n\(code)\n")
 
         XCTAssertEqual(state.endpoint, "https://task-ferry.example.com")
-        XCTAssertEqual(credentials.value(for: "access-client-id"), "client-id")
-        XCTAssertEqual(credentials.value(for: "access-client-secret"), "client-secret")
-        XCTAssertEqual(credentials.value(for: "bridge-token"), "bridge-token")
+        XCTAssertEqual(credentials.value(for: "remote-access-client-id"), "client-id")
+        XCTAssertEqual(credentials.value(for: "remote-access-client-secret"), "client-secret")
+        XCTAssertEqual(credentials.value(for: "remote-bridge-token"), "bridge-token")
+        XCTAssertEqual(credentials.value(for: "bridge-token"), "", "A remote must not write the bridge's own token")
     }
 
     func testFailedMutationReturnsFalseAndBackgroundRefreshPreservesItsError() async {
@@ -53,12 +55,13 @@ final class AppStateTests: XCTestCase {
             isDemo: false,
             defaults: defaults,
             credentialStore: credentials,
-            serviceFactory: factory
+            serviceFactory: factory,
+            snapshotCache: .disabled
         )
         XCTAssertFalse(state.hasLoadedSnapshot)
         await state.start()
 
-        let mutationSucceeded = await state.createList(title: "Will fail")
+        let mutationSucceeded = await state.createList(title: "Will fail").succeeded
         XCTAssertFalse(mutationSucceeded)
         XCTAssertEqual(state.errorMessage, "Mutation failed")
 
@@ -85,7 +88,8 @@ final class AppStateTests: XCTestCase {
             isDemo: false,
             defaults: defaults,
             credentialStore: credentials,
-            serviceFactory: factory
+            serviceFactory: factory,
+            snapshotCache: .disabled
         )
 
         let refreshSucceeded = await state.refresh()
@@ -112,7 +116,8 @@ final class AppStateTests: XCTestCase {
             isDemo: false,
             defaults: defaults,
             credentialStore: credentials,
-            serviceFactory: factory
+            serviceFactory: factory,
+            snapshotCache: .disabled
         )
 
         XCTAssertEqual(state.bridgeToken, "")
@@ -121,8 +126,11 @@ final class AppStateTests: XCTestCase {
         await state.start()
 
         XCTAssertEqual(state.bridgeToken, "TEST-TOKEN")
-        XCTAssertEqual(credentials.readCount, 4)
+        XCTAssertGreaterThan(credentials.readCount, 0)
         XCTAssertFalse(credentials.readOccurredOnMainThread)
+        // A connection saved by an earlier version moves to the remote's own Keychain items.
+        XCTAssertEqual(credentials.value(for: "remote-bridge-token"), "TEST-TOKEN")
+        XCTAssertEqual(credentials.value(for: "bridge-token"), "")
     }
 
     func testRemoteModeRefreshesWithoutAnActiveViewAndStopsAfterReset() async {
@@ -143,6 +151,7 @@ final class AppStateTests: XCTestCase {
             defaults: defaults,
             credentialStore: credentials,
             serviceFactory: factory,
+            snapshotCache: .disabled,
             automaticRefreshInterval: .milliseconds(10)
         )
 
@@ -163,7 +172,7 @@ final class AppStateTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
         defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
-        let state = AppState(isDemo: false, defaults: defaults)
+        let state = AppState(isDemo: false, defaults: defaults, snapshotCache: .disabled)
         let date = DateComponents(
             calendar: Calendar(identifier: .gregorian),
             year: 2026,
@@ -191,7 +200,7 @@ final class AppStateTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
         defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
-        let state = AppState(isDemo: false, defaults: defaults)
+        let state = AppState(isDemo: false, defaults: defaults, snapshotCache: .disabled)
         let date = DateComponents(
             calendar: Calendar(identifier: .gregorian),
             year: 2026,
@@ -221,7 +230,7 @@ final class AppStateTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
         defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
-        let state = AppState(isDemo: false, defaults: defaults)
+        let state = AppState(isDemo: false, defaults: defaults, snapshotCache: .disabled)
         state.snapshot = ReminderSnapshot(
             lists: [],
             reminders: [
@@ -241,17 +250,17 @@ final class AppStateTests: XCTestCase {
 
 @MainActor
 private final class MutationFailingService: ReminderService {
-    func execute(_ request: RPCRequest) async throws -> ReminderSnapshot {
+    func execute(_ request: RPCRequest) async throws -> RPCResult {
         if request.operation != .snapshot {
             throw ReminderServiceError.message("Mutation failed")
         }
-        return .empty
+        return RPCResult(snapshot: .empty)
     }
 }
 
 @MainActor
 private final class SnapshotFailingService: ReminderService {
-    func execute(_ request: RPCRequest) async throws -> ReminderSnapshot {
+    func execute(_ request: RPCRequest) async throws -> RPCResult {
         throw ReminderServiceError.message("Snapshot failed")
     }
 }
@@ -260,11 +269,11 @@ private final class SnapshotFailingService: ReminderService {
 private final class CountingService: ReminderService {
     private(set) var snapshotCount = 0
 
-    func execute(_ request: RPCRequest) async throws -> ReminderSnapshot {
+    func execute(_ request: RPCRequest) async throws -> RPCResult {
         if request.operation == .snapshot {
             snapshotCount += 1
         }
-        return .empty
+        return RPCResult(snapshot: .empty)
     }
 }
 

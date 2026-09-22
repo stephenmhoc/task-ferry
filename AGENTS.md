@@ -9,3 +9,8 @@
 - Never log or persist credentials outside Keychain.
 - Use `TASK_FERRY_DEMO=1` for UI verification so tests cannot mutate real reminders or trigger privacy prompts.
 - Run the core tests after substantive model, protocol, or service changes. They are intentionally host-independent because a `MenuBarExtra` app is not a reliable XCTest host.
+- Bridges and remote clients update independently. Keep the RPC protocol backward compatible: add optional fields only. When a remote must know that its bridge supports something, bump `RPCRequest.currentProtocolVersion`.
+- Keep the launch path lean. Before the first frame, only decide the activation policy and install delegates that must exist at launch. Start syncing in `applicationDidFinishLaunching`, and defer everything else, such as observers, Services, the hotkey, notifications, and Sparkle.
+- Work that must outlive a window belongs in the app delegate or `AppState`, never in a view. That includes the Dock badge, stopping `cloudflared` on quit, and sync triggers.
+- Never treat an unreadable Keychain item as a missing one. Use `CredentialStore.read(_:)`, which throws for anything but "not found".
+- Run `scripts/test.sh` before committing. It fetches the pinned connector and regenerates the project.

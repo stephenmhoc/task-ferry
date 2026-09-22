@@ -3,10 +3,10 @@ import XCTest
 final class DemoReminderServiceTests: XCTestCase {
     func testMutationReturnsAuthoritativeSnapshot() async throws {
         let service = DemoReminderService()
-        let original = try await service.execute(.snapshot)
+        let original = try await service.run(.snapshot)
         let listID = try XCTUnwrap(original.lists.first?.id)
 
-        let updated = try await service.execute(RPCRequest(
+        let updated = try await service.run(RPCRequest(
             operation: .upsertReminder,
             title: "A newly added reminder",
             notes: "With useful context.",
@@ -20,10 +20,10 @@ final class DemoReminderServiceTests: XCTestCase {
 
     func testUpdatingReminderCanPreserveAndClearNotes() async throws {
         let service = DemoReminderService()
-        let original = try await service.execute(.snapshot)
+        let original = try await service.run(.snapshot)
         let reminder = try XCTUnwrap(original.reminders.first { $0.notes != nil })
 
-        let preserved = try await service.execute(RPCRequest(
+        let preserved = try await service.run(RPCRequest(
             operation: .upsertReminder,
             id: reminder.id,
             title: "Updated title",
@@ -32,7 +32,7 @@ final class DemoReminderServiceTests: XCTestCase {
         ))
         XCTAssertEqual(preserved.reminders.first { $0.id == reminder.id }?.notes, reminder.notes)
 
-        let cleared = try await service.execute(RPCRequest(
+        let cleared = try await service.run(RPCRequest(
             operation: .upsertReminder,
             id: reminder.id,
             title: "Updated title",
@@ -45,10 +45,10 @@ final class DemoReminderServiceTests: XCTestCase {
 
     func testCompletingReminderRemovesItFromSnapshot() async throws {
         let service = DemoReminderService()
-        let original = try await service.execute(.snapshot)
+        let original = try await service.run(.snapshot)
         let reminder = try XCTUnwrap(original.reminders.first)
 
-        let updated = try await service.execute(RPCRequest(
+        let updated = try await service.run(RPCRequest(
             operation: .setCompleted,
             id: reminder.id,
             completed: true
@@ -61,7 +61,7 @@ final class DemoReminderServiceTests: XCTestCase {
         let service = DemoReminderService()
 
         do {
-            _ = try await service.execute(RPCRequest(
+            _ = try await service.run(RPCRequest(
                 operation: .upsertReminder,
                 title: "Orphaned reminder",
                 listID: "missing-list"
@@ -74,11 +74,11 @@ final class DemoReminderServiceTests: XCTestCase {
 
     func testRejectsUpdateForMissingReminderLikeEventKitService() async throws {
         let service = DemoReminderService()
-        let snapshot = try await service.execute(.snapshot)
+        let snapshot = try await service.run(.snapshot)
         let listID = try XCTUnwrap(snapshot.lists.first?.id)
 
         do {
-            _ = try await service.execute(RPCRequest(
+            _ = try await service.run(RPCRequest(
                 operation: .upsertReminder,
                 id: "missing-reminder",
                 title: "Updated reminder",
@@ -88,5 +88,36 @@ final class DemoReminderServiceTests: XCTestCase {
         } catch {
             XCTAssertEqual(error.localizedDescription, "That reminder changed elsewhere. Refresh and try again.")
         }
+    }
+}
+
+private extension DemoReminderService {
+    func run(_ request: RPCRequest) async throws -> ReminderSnapshot {
+        try await execute(request).snapshot
+    }
+}
+
+@MainActor
+final class DemoReminderUndoTests: XCTestCase {
+    func testUncompletingRestoresTheReminder() async throws {
+        let service = DemoReminderService()
+        let original = try await service.execute(.snapshot)
+        let reminder = try XCTUnwrap(original.snapshot.reminders.first)
+
+        _ = try await service.execute(RPCRequest(operation: .setCompleted, id: reminder.id, completed: true))
+        let restored = try await service.execute(RPCRequest(operation: .setCompleted, id: reminder.id, completed: false))
+
+        XCTAssertTrue(restored.snapshot.reminders.contains(reminder))
+    }
+
+    func testCreatingReportsTheNewIdentifier() async throws {
+        let service = DemoReminderService()
+        let original = try await service.execute(.snapshot)
+        let listID = try XCTUnwrap(original.snapshot.lists.first?.id)
+
+        let result = try await service.execute(RPCRequest(operation: .upsertReminder, title: "New", listID: listID))
+
+        let createdID = try XCTUnwrap(result.createdID)
+        XCTAssertEqual(result.snapshot.reminders.first { $0.id == createdID }?.title, "New")
     }
 }

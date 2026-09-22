@@ -1,14 +1,19 @@
 import SwiftUI
 
+/// Edits a reminder in place, the way Reminders and Things do. There's no Save button: changes
+/// are kept when you press Return, click another reminder, switch lists, or close the window.
+/// Esc discards them.
 struct InlineReminderEditor: View {
-    private enum PendingAction {
-        case saving
-        case completing
+    private enum Field: Hashable {
+        case title
+        case notes
     }
 
     let state: AppState
     let reminder: ReminderRecord
-    let onDeleteRequested: () -> Void
+    let onSave: (_ title: String, _ notes: String, _ listID: String, _ due: ReminderDue?) -> Void
+    let onComplete: () -> Void
+    let onDelete: () -> Void
     let onClose: () -> Void
 
     @State private var title: String
@@ -17,17 +22,22 @@ struct InlineReminderEditor: View {
     @State private var hasDue: Bool
     @State private var dueDate: Date
     @State private var includesTime: Bool
-    @State private var pendingAction: PendingAction?
+    @State private var isFinished = false
+    @FocusState private var focusedField: Field?
 
     init(
         state: AppState,
         reminder: ReminderRecord,
-        onDeleteRequested: @escaping () -> Void,
+        onSave: @escaping (_ title: String, _ notes: String, _ listID: String, _ due: ReminderDue?) -> Void,
+        onComplete: @escaping () -> Void,
+        onDelete: @escaping () -> Void,
         onClose: @escaping () -> Void
     ) {
         self.state = state
         self.reminder = reminder
-        self.onDeleteRequested = onDeleteRequested
+        self.onSave = onSave
+        self.onComplete = onComplete
+        self.onDelete = onDelete
         self.onClose = onClose
 
         let initialDue = reminder.due
@@ -40,102 +50,71 @@ struct InlineReminderEditor: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            completionButton
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Button {
+                // Keep what was typed, then complete, as clicking the circle does in Reminders.
+                commit()
+                onComplete()
+            } label: {
+                Circle()
+                    .strokeBorder(accentColor, lineWidth: 1.5)
+                    .frame(width: 18, height: 18)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Mark as Completed")
+            .accessibilityLabel("Mark \(reminder.title) as completed")
+            .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
 
-            VStack(alignment: .leading, spacing: 10) {
-                titleControl
-                notesControl
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Title", text: $title, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...4)
+                    .focused($focusedField, equals: .title)
+                    .onSubmit(commitAndClose)
+                    .accessibilityLabel("Reminder title")
+
+                TextField("Notes", text: $notes, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1...8)
+                    .focused($focusedField, equals: .notes)
+                    .accessibilityLabel("Notes")
+
                 metadataControls
-
-                HStack(spacing: 8) {
-                    Button("Save", action: saveReminder)
-                        .buttonStyle(.borderedProminent)
-                        .tint(TaskFerryPalette.ocean)
-                        .keyboardShortcut(.return, modifiers: .command)
-                        .disabled(!isValid || isBusy)
-
-                    Button("Delete…", role: .destructive) {
-                        onDeleteRequested()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                    .disabled(isBusy)
-
-                    Button("Cancel", action: cancelEditing)
-                        .buttonStyle(.bordered)
-                        .keyboardShortcut(.cancelAction)
-                        .disabled(isBusy)
-                }
-                .controlSize(.small)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 11)
-    }
-
-    private var completionButton: some View {
-        Button(action: completeReminder) {
-            ZStack {
-                Circle()
-                    .stroke(accentColor, lineWidth: 1.7)
-                    .frame(width: 19, height: 19)
-                if pendingAction == .completing {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(accentColor)
-                }
-            }
-            .frame(width: 27, height: 27)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .help("Mark as Complete")
-        .accessibilityLabel("Complete \(reminder.title)")
-        .disabled(isBusy)
-    }
-
-    private var titleControl: some View {
-        TextField("Task", text: $title, axis: .vertical)
-            .textFieldStyle(.plain)
-            .font(.body.weight(.medium))
-            .lineLimit(1...3)
-            .accessibilityLabel("Reminder title")
-    }
-
-    private var notesControl: some View {
-        TextField("Add notes…", text: $notes, axis: .vertical)
-            .textFieldStyle(.plain)
-            .foregroundStyle(.secondary)
-            .lineLimit(1...5)
-            .accessibilityLabel("Notes")
-    }
-
-    private var listPicker: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(accentColor)
-                .frame(width: 6, height: 6)
-
-            Picker("List", selection: $listID) {
-                ForEach(state.snapshot.lists) { list in
-                    Text(list.title).tag(list.id)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .fixedSize()
+        .padding(.vertical, 6)
+        .onAppear { focusedField = .title }
+        .onDisappear(perform: commit)
+        .onExitCommand(perform: revertAndClose)
+        .onKeyPress(.return, phases: .down) { press in
+            guard press.modifiers.contains(.command) else { return .ignored }
+            commitAndClose()
+            return .handled
         }
     }
 
     private var metadataControls: some View {
         HStack(spacing: 12) {
-            listPicker
+            Picker("List", selection: $listID) {
+                ForEach(state.snapshot.lists) { list in
+                    Label {
+                        Text(list.title)
+                    } icon: {
+                        ListColorDot.image(hex: list.colorHex)
+                    }
+                    .tag(list.id)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
 
-            Divider()
-                .frame(height: 14)
-
-            Toggle("Due", isOn: $hasDue)
+            Toggle("Date", isOn: $hasDue)
                 .toggleStyle(.checkbox)
                 .fixedSize()
 
@@ -156,68 +135,55 @@ struct InlineReminderEditor: View {
             }
 
             Spacer()
+
+            // Only asks for confirmation. If the user cancels, editing and autosave carry on.
+            Button("Delete…", role: .destructive, action: onDelete)
+            .buttonStyle(.borderless)
+            .foregroundStyle(.red)
         }
-        .font(.caption)
+        .font(.callout)
         .controlSize(.small)
     }
 
-    private var selectedList: ReminderListRecord? {
-        state.list(for: listID)
-    }
-
     private var accentColor: Color {
-        Color(hex: selectedList?.colorHex ?? TaskFerryPalette.defaultListHex)
+        Color(hex: state.list(for: listID)?.colorHex ?? TaskFerryPalette.defaultListHex)
     }
 
-    private var due: ReminderDue? {
-        hasDue ? ReminderDue(date: dueDate, includesTime: includesTime) : nil
+    /// The edited due date. When the date controls weren't touched, the original value is returned
+    /// exactly, so an edit to the title never rewrites a reminder's time zone or floating time.
+    private var editedDue: ReminderDue? {
+        let initial = reminder.due
+        let untouched = hasDue == (initial != nil)
+            && includesTime == (initial?.hasTime ?? false)
+            && (initial == nil || dueDate == initial?.date())
+        if untouched { return initial }
+        return hasDue ? ReminderDue(date: dueDate, includesTime: includesTime) : nil
     }
 
-    private var isValid: Bool {
-        !title.trimmed.isEmpty && !listID.isEmpty
-    }
-
-    private var isBusy: Bool {
-        pendingAction != nil
-    }
-
-    private func saveReminder() {
-        guard isValid, !isBusy else { return }
-        let pendingTitle = title.trimmed
-        let pendingNotes = notes
-        let pendingListID = listID
-        let pendingDue = due
-        pendingAction = .saving
-
-        Task {
-            if await state.updateReminder(
-                reminder,
-                title: pendingTitle,
-                listID: pendingListID,
-                due: pendingDue,
-                notes: pendingNotes
-            ) {
-                onClose()
-            } else {
-                pendingAction = nil
-            }
+    private func commit() {
+        guard !isFinished else { return }
+        isFinished = true
+        // Deleted or completed elsewhere while open: there's nothing left to save to.
+        guard state.reminder(for: reminder.id) != nil else { return }
+        let cleanTitle = title.trimmed
+        guard !cleanTitle.isEmpty, !listID.isEmpty else { return }
+        let due = editedDue
+        let changed = cleanTitle != reminder.title
+            || notes != (reminder.notes ?? "")
+            || listID != reminder.listID
+            || due != reminder.due
+        if changed {
+            onSave(cleanTitle, notes, listID, due)
         }
     }
 
-    private func cancelEditing() {
-        guard !isBusy else { return }
+    private func commitAndClose() {
+        commit()
         onClose()
     }
 
-    private func completeReminder() {
-        guard !isBusy else { return }
-        pendingAction = .completing
-        Task {
-            if await state.complete(reminder) {
-                onClose()
-            } else {
-                pendingAction = nil
-            }
-        }
+    private func revertAndClose() {
+        isFinished = true
+        onClose()
     }
 }

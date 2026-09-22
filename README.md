@@ -34,9 +34,13 @@ Cloudflare Access → Cloudflare Tunnel
 
 Every mutation returns a complete authoritative snapshot. Due dates are transferred as calendar components, rather than absolute timestamps, so a date-only reminder stays date-only across time zones.
 
+Mutations carry a request ID. If a response is lost in transit, the remote retries once, and the bridge recognizes the ID and doesn't apply the change twice. Bridges advertise a protocol version, so a remote only relies on newer behavior when its bridge supports it. The two Macs can update independently.
+
 ## Build and test
 
 Requirements: macOS 14 or newer, Xcode, and [XcodeGen](https://github.com/yonaskolb/XcodeGen). Run `scripts/fetch-cloudflared.sh` before a local app build to prepare the pinned, checksum-verified universal connector; release builds do this automatically.
+
+`xcodegen generate` fails until the connector has been fetched. This is deliberate, so a build can never silently ship without remote access.
 
 ```sh
 brew install xcodegen
@@ -96,6 +100,32 @@ Cloudflare Access and the bridge bearer token remain independent authentication 
 
 Secrets are stored in the macOS Keychain. Network requests use an ephemeral URL session with caching disabled.
 
+## Using Task Ferry
+
+Task Ferry behaves like Reminders:
+
+| Action | Shortcut |
+| --- | --- |
+| New reminder / new list / new window | ⌘N / ⇧⌘N / ⌥⌘N |
+| Today / Tomorrow / All Reminders | ⌘1 / ⌘2 / ⌘3 |
+| Edit the selected reminder | Return, double-click, or ⌘I |
+| Save edits / discard edits | Return (or click elsewhere) / Esc |
+| Mark as Completed | ⌘K |
+| Due Today / Due Tomorrow | ⌘T / ⌥⌘T |
+| Delete | Delete key |
+| Undo / Redo (complete, edit, move, reschedule) | ⌘Z / ⇧⌘Z |
+| Find | ⌘F |
+| Refresh | ⌘R |
+| Quick Entry from anywhere (optional, in Settings) | ⌃⌥Space |
+
+- **Selecting and moving:** select several reminders with ⌘-click or ⇧-click. Drag them onto a list to move them, or onto Today or Tomorrow to reschedule them. Copy and paste them as text. Pasting or dropping text creates one reminder per line.
+- **Quick Entry:** in the menu bar, in the Dock menu, and in every app's **Services** menu as **New Task Ferry Reminder**.
+- **Shortcuts, Siri, and Spotlight:** **Add Reminder**, **Get Today's Reminders**, and **Open Reminders View**.
+- **URL scheme:** `taskferry://add?title=…&list=…&due=today|tomorrow&notes=…` opens a prefilled Quick Entry to confirm, since any web page can open a URL. Also available: `taskferry://show/today|tomorrow|all`, `taskferry://show/list/<name or id>`, and `taskferry://reminder/<id>`. Connection codes are never accepted by URL.
+- **Due-date alerts:** optional, under Settings → Notifications. They fire on the remote Mac, which isn't signed in to your personal iCloud account, and offer Complete, Remind Me in 1 Hour, and Move to Tomorrow actions.
+- **Instant launch:** a remote Mac keeps a read-only copy of its last snapshot in its Caches folder, readable only by you, and shows it in the first frame while it syncs. Nothing is ever written back from that copy. Turn it off under Settings → Connection.
+- **Background bridge:** a bridge running in the background has no Dock icon, but its menu bar item always offers Open, Copy Connection Code, Settings, and Quit.
+
 ## Scope
 
 The current app intentionally supports only:
@@ -104,9 +134,10 @@ The current app intentionally supports only:
 - incomplete reminders: create, edit, complete, delete;
 - date-only and timed due dates;
 - Today (including overdue) and Tomorrow;
-- a menu-bar quick entry with list selection and None, Today, or Tomorrow due dates.
+- a menu-bar and floating Quick Entry with list selection and None, Today, or Tomorrow due dates;
+- list colors, and alerts that follow a reminder's due time, as in Reminders.
 
-It intentionally omits notes, tags, priorities, recurrence, attachments, shared-list administration, completed-history browsing, offline writes, and conflict merging. Since each change is immediately applied to EventKit and followed by a fresh snapshot, there is no second task database to reconcile.
+It intentionally omits tags, priorities, recurrence editing, attachments, shared-list administration, completed-history browsing, offline writes, and conflict merging. Since each change is immediately applied to EventKit and followed by a fresh snapshot, there is no second task database to reconcile.
 
 ## Distribution
 

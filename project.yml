@@ -26,13 +26,13 @@ targets:
     platform: macOS
     sources:
       - TaskFerry
+      # Not optional: generating the project without the connector would silently ship an app
+      # that can't provide remote access. Run scripts/fetch-cloudflared.sh first.
       - path: .vendor/cloudflared/cloudflared
-        optional: true
         buildPhase:
           copyFiles:
             destination: executables
       - path: .vendor/cloudflared/cloudflared-LICENSE
-        optional: true
         buildPhase: resources
     dependencies:
       - package: Sparkle
@@ -88,6 +88,10 @@ targets:
       - TaskFerry/Services/CloudflareAPIClient.swift
       - TaskFerry/Services/CloudflareOAuthClient.swift
       - TaskFerry/Services/CloudflareTunnelConnector.swift
+      - TaskFerry/Services/RequestLedger.swift
+      - TaskFerry/Services/SnapshotCache.swift
+      - TaskFerry/Services/ReminderNotificationPlan.swift
+      - TaskFerry/Services/TaskFerryURL.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.merimerimeri.TaskFerryTests

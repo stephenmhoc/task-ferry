@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 
 struct MenuRootView: View {
-    @Environment(\.scenePhase) private var scenePhase
     @Bindable var state: AppState
 
     var body: some View {
@@ -10,75 +9,16 @@ struct MenuRootView: View {
             switch state.mode {
             case nil:
                 SetupView(state: state)
+                    .frame(minWidth: 420, minHeight: 440)
             case .bridge:
                 BridgeView(state: state)
+                    .frame(minWidth: 420, minHeight: 480)
             case .remote:
                 RemindersWorkspaceView(state: state)
+                    .frame(minWidth: 580, minHeight: 420)
             }
         }
-        .frame(minWidth: minimumWidth, minHeight: 540)
-        .background(Color(nsColor: .windowBackgroundColor))
-        .background(WindowMinimumSize(width: minimumWidth, height: 540))
-        .task {
-            await state.start()
-            state.applyActivationPolicy()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            guard phase == .active, state.mode != nil else { return }
-            Task { await state.refresh(showLoadingIndicator: false) }
-        }
-        .onChange(of: state.dockBadgeCount, initial: true) { _, count in
-            DockBadgeManager.update(count: count)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-            state.stopCloudflareConnector()
-        }
-    }
-
-    private var minimumWidth: CGFloat {
-        state.mode == .remote ? 800 : 400
-    }
-}
-
-private struct WindowMinimumSize: NSViewRepresentable {
-    let width: CGFloat
-    let height: CGFloat
-
-    func makeNSView(context: Context) -> MinimumSizeHostingView {
-        MinimumSizeHostingView(contentSize: NSSize(width: width, height: height))
-    }
-
-    func updateNSView(_ view: MinimumSizeHostingView, context: Context) {
-        view.contentSize = NSSize(width: width, height: height)
-        view.applyMinimumSize()
-    }
-}
-
-private final class MinimumSizeHostingView: NSView {
-    var contentSize: NSSize
-
-    init(contentSize: NSSize) {
-        self.contentSize = contentSize
-        super.init(frame: .zero)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        applyMinimumSize()
-    }
-
-    func applyMinimumSize() {
-        guard let window else { return }
-        window.identifier = TaskFerryWindowID.mainWindow
-        window.contentMinSize = contentSize
-        let frameSize = window.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize))
-            .size
-        window.minSize = frameSize
+        .background(MainWindowRegistrar())
     }
 }
 
@@ -89,7 +29,7 @@ private struct SetupView: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 Image(systemName: "checklist")
-                    .font(.system(size: 32, weight: .medium))
+                    .font(.largeTitle.weight(.medium))
                     .foregroundStyle(.tint)
                     .accessibilityHidden(true)
                 Text("Reminders, within reach")
@@ -105,7 +45,7 @@ private struct SetupView: View {
                 Section("This Mac should") {
                     modeButton(
                         title: "Connect to my Mac mini",
-                        subtitle: "View and manage tasks from anywhere",
+                        subtitle: "View and manage reminders from anywhere",
                         symbol: "laptopcomputer.and.iphone",
                         mode: .remote
                     )
@@ -121,7 +61,7 @@ private struct SetupView: View {
         }
     }
 
-    private func modeButton(title: String, subtitle: String, symbol: String, mode: AppMode) -> some View {
+    private func modeButton(title: LocalizedStringKey, subtitle: LocalizedStringKey, symbol: String, mode: AppMode) -> some View {
         Button {
             Task { await state.chooseMode(mode) }
         } label: {
@@ -135,6 +75,9 @@ private struct SetupView: View {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
+                Image(systemName: "chevron.forward")
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
             .padding(.vertical, 5)
             .contentShape(Rectangle())
@@ -146,18 +89,20 @@ private struct SetupView: View {
 
 private struct BridgeView: View {
     @Bindable var state: AppState
+    @State private var copiedMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
                 Image(systemName: "antenna.radiowaves.left.and.right")
-                    .font(.system(size: 25, weight: .medium))
+                    .font(.title.weight(.medium))
                     .foregroundStyle(.tint)
                     .frame(width: 46, height: 46)
                     .background(.tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 11))
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.title2.weight(.semibold))
-                    Text(detail).font(.callout).foregroundStyle(.secondary)
+                    Text(BridgeStatusText.title(for: state.bridgeState)).font(.title2.weight(.semibold))
+                    Text(BridgeStatusText.detail(for: state.bridgeState)).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -168,13 +113,13 @@ private struct BridgeView: View {
                     statusRow(
                         symbol: "lock.shield",
                         title: "Private listener",
-                        detail: "127.0.0.1 only",
+                        detail: Text("127.0.0.1 only"),
                         ready: isRunning
                     )
                     statusRow(
                         symbol: "key",
                         title: "Bridge token",
-                        detail: state.bridgeToken.isEmpty ? "Missing" : "Stored in Keychain",
+                        detail: Text(state.bridgeToken.isEmpty ? "Missing" : "Stored in Keychain"),
                         ready: !state.bridgeToken.isEmpty
                     )
                     statusRow(
@@ -182,23 +127,42 @@ private struct BridgeView: View {
                         title: "Reminders access",
                         detail: remindersDetail,
                         ready: state.connectionState == .connected
-                    )
+                    ) {
+                        if state.connectionState == .failed {
+                            Button("Open Privacy Settings") {
+                                NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders")!)
+                            }
+                        }
+                    }
                     statusRow(
                         symbol: "cloud",
                         title: "Remote access",
-                        detail: cloudflareDetail,
+                        detail: Text(BridgeStatusText.connector(state.cloudflareConnectorState, hostname: state.cloudflareHostname)),
                         ready: state.cloudflareConnectorState == .connected
-                    )
+                    ) {
+                        if state.cloudflareProvisioning == nil {
+                            SettingsLink { Text("Set Up…") }
+                        } else {
+                            Button("Copy Connection Code", action: copyConnectionCode)
+                        }
+                    }
                 }
             }
             .listStyle(.inset)
 
+            if let copiedMessage {
+                Text(copiedMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 8)
+            }
+
             if let error = state.errorMessage {
                 ErrorBanner(message: error) { state.dismissError() }
                     .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
             }
         }
-        .task { await state.refresh() }
     }
 
     private var isRunning: Bool {
@@ -206,81 +170,141 @@ private struct BridgeView: View {
         return false
     }
 
-    private var title: String {
-        switch state.bridgeState {
-        case .running: "Bridge is ready"
-        case .failed: "Bridge could not start"
-        case .starting: "Starting bridge…"
-        case .stopped: "Bridge is stopped"
-        }
-    }
-
-    private var detail: String {
-        switch state.bridgeState {
-        case .running(let port): "This Mac is listening privately on localhost:\(port)."
-        case .failed(let message): message
-        case .starting: "Binding the private local listener."
-        case .stopped: "Open Settings to configure this Mac."
-        }
-    }
-
-    private var remindersDetail: String {
+    private var remindersDetail: Text {
         switch state.connectionState {
         case .connected:
-            "\(state.snapshot.lists.count) lists · \(state.snapshot.reminders.count) open reminders"
+            Text("^[\(state.snapshot.lists.count) list](inflect: true) · ^[\(state.snapshot.reminders.count) open reminder](inflect: true)")
         case .loading:
-            "Checking access…"
+            Text("Checking access…")
         case .failed:
-            "Access needs attention"
+            Text("Access needs attention")
         case .idle:
-            "Not checked yet"
+            Text("Not checked yet")
         }
     }
 
-    private var cloudflareDetail: String {
-        switch state.cloudflareConnectorState {
-        case .notConfigured:
-            "Not configured"
-        case .stopped:
-            "Connector stopped"
-        case .starting:
-            "Connecting to Cloudflare…"
-        case .connected:
-            state.cloudflareHostname ?? "Connected"
-        case .failed(let message):
-            message
+    private func copyConnectionCode() {
+        do {
+            Pasteboard.copySecret(try state.connectionCode())
+            copiedMessage = String(localized: "Connection code copied. It contains passwords, so share it securely.")
+        } catch {
+            copiedMessage = error.localizedDescription
         }
     }
 
-    private func statusRow(symbol: String, title: String, detail: String, ready: Bool) -> some View {
+    private func statusRow(
+        symbol: String,
+        title: LocalizedStringKey,
+        detail: Text,
+        ready: Bool,
+        @ViewBuilder action: () -> some View = { EmptyView() }
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: symbol).foregroundStyle(.tint).frame(width: 20)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).fontWeight(.medium)
-                Text(detail).font(.caption).foregroundStyle(.secondary)
+                detail.font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
+            action()
+                .controlSize(.small)
             Image(systemName: ready ? "checkmark.circle.fill" : "circle.dashed")
                 .foregroundStyle(ready ? .green : .secondary)
+                .accessibilityLabel(ready ? Text("Ready") : Text("Not ready"))
         }
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The bridge's menu bar item. When the bridge runs in the background it's the only way to reach
+/// the app, so it always offers the window, Settings, and Quit.
+struct BridgeStatusMenu: View {
+    @Bindable var state: AppState
+
+    var body: some View {
+        Text(BridgeStatusText.title(for: state.bridgeState))
+        Text(BridgeStatusText.connector(state.cloudflareConnectorState, hostname: state.cloudflareHostname))
+        Divider()
+        if state.cloudflareProvisioning != nil {
+            Button("Copy Connection Code") {
+                if let code = try? state.connectionCode() {
+                    Pasteboard.copySecret(code)
+                }
+            }
+        }
+        Button("Open Task Ferry") {
+            WindowRouter.shared.showMainWindow()
+        }
+        SettingsLink {
+            Text("Settings…")
+        }
+        .keyboardShortcut(",", modifiers: .command)
+        Divider()
+        Button("Quit Task Ferry") {
+            NSApp.terminate(nil)
+        }
+        .keyboardShortcut("q", modifiers: .command)
+    }
+}
+
+enum BridgeStatusText {
+    static func title(for state: BridgeServer.State) -> String {
+        switch state {
+        case .running: String(localized: "Bridge is ready")
+        case .failed: String(localized: "Bridge could not start")
+        case .starting: String(localized: "Starting bridge…")
+        case .stopped: String(localized: "Bridge is stopped")
+        }
+    }
+
+    static func detail(for state: BridgeServer.State) -> String {
+        switch state {
+        case .running(let port): String(localized: "This Mac is listening privately on localhost:\(String(port)).")
+        case .failed(let message): String(localized: "\(message) Retrying automatically.")
+        case .starting: String(localized: "Binding the private local listener.")
+        case .stopped: String(localized: "Open Settings to configure this Mac.")
+        }
+    }
+
+    static func connector(_ state: CloudflareConnectorState, hostname: String?) -> String {
+        switch state {
+        case .notConfigured: String(localized: "Remote access isn’t set up")
+        case .stopped: String(localized: "Connector stopped")
+        case .starting: String(localized: "Connecting to Cloudflare…")
+        case .connected: hostname ?? String(localized: "Connected")
+        case .reconnecting: String(localized: "Reconnecting to Cloudflare…")
+        case .failed(let message): message
+        }
     }
 }
 
 struct ErrorBanner: View {
     let message: String
+    var showsSettingsLink = false
     let dismiss: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            Text(message).font(.caption).lineLimit(2)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(.caption)
+                .lineLimit(3)
+                .textSelection(.enabled)
+                .help(message)
             Spacer()
+            if showsSettingsLink {
+                SettingsLink { Text("Open Settings…") }
+                    .controlSize(.small)
+            }
             Button(action: dismiss) { Image(systemName: "xmark") }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss error")
         }
         .padding(10)
         .background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .contain)
     }
 }

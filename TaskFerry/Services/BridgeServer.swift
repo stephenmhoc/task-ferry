@@ -20,6 +20,11 @@ final class BridgeServer {
     private var generation = 0
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     private var timeoutTasks: [ObjectIdentifier: Task<Void, Never>] = [:]
+    private var ledger = RequestLedger()
+    private var inFlightMutations: [String: Task<ReminderOperationCoordinator.Outcome, Never>] = [:]
+    private var requestedPort: UInt16?
+    private var restartTask: Task<Void, Never>?
+    private var restartAttempt = 0
     var onStateChange: ((State) -> Void)?
     private(set) var state: State = .stopped {
         didSet { onStateChange?(state) }
@@ -32,6 +37,11 @@ final class BridgeServer {
 
     func start(port: UInt16) {
         stop()
+        requestedPort = port
+        listen(port: port)
+    }
+
+    private func listen(port: UInt16) {
         generation += 1
         let listenerGeneration = generation
         do {
@@ -61,9 +71,11 @@ final class BridgeServer {
                           self.generation == listenerGeneration else { return }
                     switch newState {
                     case .ready:
+                        self.restartAttempt = 0
                         self.state = .running(port)
                     case .failed(let error):
                         self.state = .failed(error.localizedDescription)
+                        self.scheduleRestart()
                     case .cancelled:
                         self.state = .stopped
                     default:
@@ -76,10 +88,43 @@ final class BridgeServer {
             listener.start(queue: queue)
         } catch {
             state = .failed(error.localizedDescription)
+            scheduleRestart()
+        }
+    }
+
+    /// Retries a listener that failed, typically because another process briefly held the port,
+    /// so a bridge left running unattended recovers without anyone opening its window.
+    private func scheduleRestart() {
+        guard let port = requestedPort else { return }
+        restartTask?.cancel()
+        restartAttempt += 1
+        let delay = min(60, 1 << min(restartAttempt, 6))
+        restartTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+            guard let self, self.requestedPort == port else { return }
+            // Connections from the failed listener can't be answered after the generation
+            // changes, so close them rather than leave them counting against the limit.
+            self.timeoutTasks.values.forEach { $0.cancel() }
+            self.timeoutTasks.removeAll()
+            self.connections.values.forEach { $0.cancel() }
+            self.connections.removeAll()
+            self.listener?.stateUpdateHandler = nil
+            self.listener?.newConnectionHandler = nil
+            self.listener?.cancel()
+            self.listener = nil
+            self.listen(port: port)
         }
     }
 
     func stop() {
+        requestedPort = nil
+        restartTask?.cancel()
+        restartTask = nil
+        restartAttempt = 0
         generation += 1
         listener?.newConnectionHandler = nil
         listener?.stateUpdateHandler = nil
@@ -184,20 +229,56 @@ final class BridgeServer {
 
         Task { @MainActor [weak self, weak connection] in
             guard let self, let connection, self.generation == generation else { return }
-            let outcome = await self.operations.execute(rpc)
+            let outcome = await self.execute(rpc)
             guard self.generation == generation else {
                 self.finish(connection)
                 return
             }
             switch outcome {
-            case .success(let snapshot):
-                self.respond(connection, status: 200, response: RPCResponse(snapshot: snapshot))
+            case .success(let result):
+                self.respond(connection, status: 200, response: RPCResponse(
+                    snapshot: result.snapshot,
+                    createdID: result.createdID,
+                    protocolVersion: RPCRequest.currentProtocolVersion
+                ))
             case .failure(let message):
                 self.respond(connection, status: 400, response: RPCResponse(error: message))
             case .unavailable, .superseded:
                 self.respond(connection, status: 503, response: RPCResponse(error: "Bridge is unavailable."))
             }
         }
+    }
+
+    /// Applies a mutation at most once per `requestID`. A repeat gets a fresh snapshot and the
+    /// identifier created the first time.
+    private func execute(_ rpc: RPCRequest) async -> ReminderOperationCoordinator.Outcome {
+        guard rpc.operation != .snapshot, let requestID = rpc.requestID else {
+            return await operations.execute(rpc)
+        }
+        if let original = inFlightMutations[requestID] {
+            // The original records its result before it finishes, so after waiting the ledger
+            // always knows about it, whichever waiter resumes first.
+            _ = await original.value
+        }
+        if let entry = ledger.entry(for: requestID) {
+            let outcome = await operations.execute(.snapshot)
+            guard case .success(var result) = outcome else { return outcome }
+            result.createdID = entry.createdID
+            return .success(result)
+        }
+        let task = Task { @MainActor [weak self, operations] () -> ReminderOperationCoordinator.Outcome in
+            let outcome = await operations.execute(rpc)
+            if case .success(let result) = outcome {
+                self?.ledger.record(requestID, createdID: result.createdID)
+            }
+            return outcome
+        }
+        inFlightMutations[requestID] = task
+        let outcome = await task.value
+        if inFlightMutations[requestID] == task {
+            inFlightMutations.removeValue(forKey: requestID)
+        }
+        return outcome
     }
 
     private func respond(_ connection: NWConnection, status: Int, response: RPCResponse, tracked: Bool = true) {

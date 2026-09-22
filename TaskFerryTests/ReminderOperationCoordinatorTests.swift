@@ -29,19 +29,19 @@ private final class ConcurrencyTrackingService: ReminderService {
     private(set) var maximumActiveExecutions = 0
     private var activeExecutions = 0
 
-    func execute(_ request: RPCRequest) async throws -> ReminderSnapshot {
+    func execute(_ request: RPCRequest) async throws -> RPCResult {
         executionCount += 1
         activeExecutions += 1
         maximumActiveExecutions = max(maximumActiveExecutions, activeExecutions)
         try await Task.sleep(for: .milliseconds(20))
         activeExecutions -= 1
-        return .empty
+        return RPCResult(snapshot: .empty)
     }
 }
 
 @MainActor
 private final class FailingReminderService: ReminderService {
-    func execute(_ request: RPCRequest) async throws -> ReminderSnapshot {
+    func execute(_ request: RPCRequest) async throws -> RPCResult {
         throw ReminderServiceError.message("Expected failure")
     }
 }

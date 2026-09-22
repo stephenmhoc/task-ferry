@@ -2,10 +2,16 @@ import Foundation
 import Security
 
 struct KeychainStore: CredentialStore {
-    private static let service = "com.merimerimeri.TaskFerry"
+    // Each build flavor keeps its own items, so a Debug build can never read, prompt for, or
+    // rotate the credentials of the installed release.
+    private static let service = Bundle.main.bundleIdentifier ?? "com.merimerimeri.TaskFerry"
     private static let tokenAlphabet = Array("23456789ABCDEFGHJKMNPQRSTVWXYZ")
 
     func string(for account: String) -> String {
+        (try? read(account)) ?? ""
+    }
+
+    func read(_ account: String) throws -> String {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
@@ -14,12 +20,19 @@ struct KeychainStore: CredentialStore {
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
         var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data,
-              let value = String(data: data, encoding: .utf8) else {
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        switch status {
+        case errSecSuccess:
+            guard let data = result as? Data, let value = String(data: data, encoding: .utf8) else {
+                throw ReminderServiceError.message("A Task Ferry Keychain item is unreadable.")
+            }
+            return value
+        case errSecItemNotFound:
             return ""
+        default:
+            let reason = SecCopyErrorMessageString(status, nil) as String? ?? "error \(status)"
+            throw ReminderServiceError.message("Task Ferry couldn’t read its Keychain items (\(reason)). Unlock your keychain and try again.")
         }
-        return value
     }
 
     func set(_ value: String, for account: String) throws {
