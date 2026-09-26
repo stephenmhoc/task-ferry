@@ -24,7 +24,7 @@ final class UpdateManager {
 
     static var isSupported: Bool {
         #if SPARKLE_ENABLED
-        true
+        !TaskFerryRuntime.isDemo
         #else
         false
         #endif
@@ -77,6 +77,7 @@ final class UpdateManager {
     }
 
     func start() {
+        guard !TaskFerryRuntime.isDemo else { return }
         #if SPARKLE_ENABLED
         guard controller == nil else { return }
         hasStarted = true

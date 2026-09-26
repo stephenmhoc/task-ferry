@@ -46,7 +46,12 @@ private struct SettingsPane<Content: View>: View {
 
 private struct GeneralSettingsPane: View {
     @Bindable var state: AppState
-    @State private var loginItem = LoginItemModel()
+    @State private var loginItem: LoginItemModel
+
+    init(state: AppState) {
+        self.state = state
+        _loginItem = State(initialValue: LoginItemModel(isDemo: state.isDemo))
+    }
     @State private var updates = UpdateManager.shared
     @AppStorage(AppPreferences.showsQuickEntryInMenuBar) private var showsQuickEntry = true
     @AppStorage(AppPreferences.showsBridgeStatusInMenuBar) private var showsBridgeStatus = true
@@ -82,7 +87,7 @@ private struct GeneralSettingsPane: View {
                         .onChange(of: hotKeyEnabled) { _, _ in
                             GlobalHotKey.shared.applyPreference()
                         }
-                    Text("Quick Entry is also in the Services menu of other apps, as New Task Ferry Reminder.")
+                    Text(state.isDemo ? "Demo mode does not register a system shortcut or Services provider." : "Quick Entry is also in the Services menu of other apps, as New Task Ferry Reminder.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -145,11 +150,15 @@ private final class LoginItemModel {
     var isEnabled: Bool { status == .enabled || status == .requiresApproval }
     var requiresApproval: Bool { status == .requiresApproval }
 
-    init() {
+    private let isDemo: Bool
+
+    init(isDemo: Bool) {
+        self.isDemo = isDemo
         reload()
     }
 
     func reload() {
+        guard !isDemo else { return }
         Task {
             let status = await Task.detached(priority: .utility) { SMAppService.mainApp.status }.value
             if !isUpdating { self.status = status }
@@ -157,6 +166,11 @@ private final class LoginItemModel {
     }
 
     func setEnabled(_ enabled: Bool) {
+        if isDemo {
+            status = enabled ? .enabled : .notRegistered
+            message = String(localized: "Demo only. Login registration was not changed.")
+            return
+        }
         isUpdating = true
         message = nil
         Task {
@@ -187,6 +201,8 @@ private struct ConnectionSettingsPane: View {
     @State private var connectionCodeRevealed = false
     @State private var isWorking = false
     @State private var message: String?
+    @State private var messageIsError = false
+    @State private var connectionTestMessage: String?
     @State private var keepsOfflineCopy = true
 
     var body: some View {
@@ -205,10 +221,12 @@ private struct ConnectionSettingsPane: View {
                     }
                     .disabled(isWorking)
                 }
+                if let connectionTestMessage { Text(connectionTestMessage).font(.callout) }
             }
 
             Section {
-                LabeledContent("Connection code") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Connection code")
                     HStack {
                         Group {
                             if connectionCodeRevealed {
@@ -217,13 +235,16 @@ private struct ConnectionSettingsPane: View {
                                 SecureField("TASKFERRY1:…", text: $connectionCode)
                             }
                         }
+                        .textFieldStyle(.roundedBorder)
                         .labelsHidden()
+                        .accessibilityLabel("Connection code")
                         Button {
                             connectionCodeRevealed.toggle()
                         } label: {
                             Image(systemName: connectionCodeRevealed ? "eye.slash" : "eye")
                         }
                         .buttonStyle(.borderless)
+                        .accessibilityLabel(connectionCodeRevealed ? "Hide connection code" : "Show connection code")
                         .help(connectionCodeRevealed ? "Hide connection code" : "Show connection code")
                     }
                 }
@@ -237,6 +258,12 @@ private struct ConnectionSettingsPane: View {
                     }
                     .keyboardShortcut(.defaultAction)
                     .disabled(isWorking || connectionCode.trimmed.isEmpty)
+                }
+                if let message {
+                    Label(message, systemImage: messageIsError ? "exclamationmark.circle" : "checkmark.circle")
+                        .font(.callout)
+                        .foregroundStyle(messageIsError ? Color.red : Color.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             } header: {
                 Text(state.endpoint.isEmpty ? "Connect" : "Replace Connection")
@@ -257,9 +284,7 @@ private struct ConnectionSettingsPane: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let message {
-                Text(message).font(.callout).foregroundStyle(.secondary)
-            }
+
         }
         .onAppear { keepsOfflineCopy = state.keepsOfflineCopy }
     }
@@ -277,23 +302,27 @@ private struct ConnectionSettingsPane: View {
     private func saveConnectionCodeAndTest() async {
         guard !isWorking else { return }
         isWorking = true
+        messageIsError = false
         defer { isWorking = false }
         do {
             try await state.saveConnectionCode(connectionCode)
             connectionCode = ""
             connectionCodeRevealed = false
             if await state.refresh() {
-                message = String(localized: "Connected. The connection is stored in your keychain.")
+                message = state.isDemo ? String(localized: "Demo connection ready. Nothing was saved to Keychain.") : String(localized: "Connected. The connection is stored in your keychain.")
             } else {
+                messageIsError = true
                 message = String(localized: "Saved, but the bridge didn’t answer: \(state.errorMessage ?? String(localized: "Unknown error"))")
             }
         } catch {
+            messageIsError = true
             message = error.localizedDescription
         }
     }
 
     private func pasteConnectionCode() {
         guard let value = NSPasteboard.general.string(forType: .string) else {
+            messageIsError = true
             message = String(localized: "The clipboard is empty.")
             return
         }
@@ -302,6 +331,7 @@ private struct ConnectionSettingsPane: View {
             connectionCode = value.trimmed
             message = nil
         } catch {
+            messageIsError = true
             message = error.localizedDescription
         }
     }
@@ -310,7 +340,7 @@ private struct ConnectionSettingsPane: View {
         guard !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
-        message = await state.refresh()
+        connectionTestMessage = await state.refresh()
             ? String(localized: "The bridge answered.")
             : state.errorMessage ?? String(localized: "The bridge didn’t answer.")
     }
@@ -366,7 +396,9 @@ private struct BridgeSettingsPane: View {
 
             Section {
                 LabeledContent("Local address", value: "127.0.0.1:\(String(state.port))")
-                LabeledContent("Bridge token") {
+                HStack {
+                    Text("Bridge token")
+                    Spacer()
                     HStack {
                         Text(tokenRevealed ? state.bridgeToken : String(repeating: "•", count: 12))
                             .font(.body.monospaced())
@@ -377,6 +409,7 @@ private struct BridgeSettingsPane: View {
                             Image(systemName: tokenRevealed ? "eye.slash" : "eye")
                         }
                         .buttonStyle(.borderless)
+                        .accessibilityLabel(tokenRevealed ? "Hide bridge token" : "Show bridge token")
                         .help(tokenRevealed ? "Hide bridge token" : "Show bridge token")
                     }
                 }
@@ -486,7 +519,7 @@ private struct NotificationSettingsPane: View {
                     ReminderNotificationScheduler.shared.setDateOnlyHour(hour)
                 }
             } footer: {
-                Text("This Mac isn’t signed in to your personal iCloud account, so Reminders can’t alert you here. Task Ferry schedules alerts for the next two weeks, with Complete, Remind Me in 1 Hour, and Move to Tomorrow actions.")
+                Text(state.isDemo ? "Demo only. No notification permission is requested and no alerts are scheduled." : "Get alerts on this Mac for reminders from your bridge. Task Ferry schedules the next two weeks, with Complete, Remind Me in 1 Hour, and Move to Tomorrow actions.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

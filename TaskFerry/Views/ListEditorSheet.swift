@@ -21,6 +21,7 @@ struct ListEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     let state: AppState
     let context: ListEditorContext
+    var onCreate: (String) -> Void = { _ in }
 
     @State private var title: String
     @State private var colorHex: String
@@ -29,7 +30,8 @@ struct ListEditorSheet: View {
     @State private var confirmingDelete = false
     @FocusState private var titleIsFocused: Bool
 
-    init(state: AppState, context: ListEditorContext) {
+    init(state: AppState, context: ListEditorContext, onCreate: @escaping (String) -> Void = { _ in }) {
+        self.onCreate = onCreate
         self.state = state
         self.context = context
         _title = State(initialValue: context.list?.title ?? "")
@@ -52,12 +54,13 @@ struct ListEditorSheet: View {
                 ErrorBanner(message: error) { state.dismissError() }
             }
 
-            Form {
+            VStack(alignment: .leading, spacing: 14) {
                 TextField("Name:", text: $title)
                     .focused($titleIsFocused)
                     .onSubmit(save)
 
-                LabeledContent("Color:") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Color")
                     HStack(spacing: 6) {
                         ForEach(TaskFerryPalette.listColors, id: \.hex) { option in
                             Button {
@@ -75,12 +78,13 @@ struct ListEditorSheet: View {
                             .buttonStyle(.plain)
                             .help(Text(option.name))
                             .accessibilityLabel(Text(option.name))
+                            .accessibilityValue(colorHex == option.hex ? Text("Selected") : Text("Not selected"))
                             .accessibilityAddTraits(colorHex == option.hex ? .isSelected : [])
                         }
                     }
+                    .accessibilityElement(children: .contain)
                 }
             }
-            .formStyle(.columns)
 
             Text("Lists stay in sync with Apple Reminders.")
                 .font(.callout)
@@ -128,7 +132,9 @@ struct ListEditorSheet: View {
                 let color = colorHex == list.colorHex.uppercased() ? nil : colorHex
                 succeeded = await state.renameList(list, title: cleanTitle, colorHex: color)
             } else {
-                succeeded = await state.createList(title: cleanTitle, colorHex: colorHex).succeeded
+                let outcome = await state.createList(title: cleanTitle, colorHex: colorHex)
+                succeeded = outcome.succeeded
+                if succeeded, let id = outcome.createdID { onCreate(id) }
             }
 
             if succeeded {

@@ -10,14 +10,16 @@ extension AppState {
 struct TaskFerryApp: App {
     @NSApplicationDelegateAdaptor(TaskFerryApplicationDelegate.self) private var appDelegate
     @State private var state = AppState.shared
-    @AppStorage(AppPreferences.showsQuickEntryInMenuBar) private var showsQuickEntry = true
-    @AppStorage(AppPreferences.showsBridgeStatusInMenuBar) private var showsBridgeStatus = true
+    @AppStorage(AppPreferences.showsQuickEntryInMenuBar, store: TaskFerryRuntime.preferences) private var showsQuickEntry = true
+    @AppStorage(AppPreferences.showsBridgeStatusInMenuBar, store: TaskFerryRuntime.preferences) private var showsBridgeStatus = true
 
     var body: some Scene {
         WindowGroup("Task Ferry", id: TaskFerryWindowID.mainScene) {
             MenuRootView(state: state)
+                .defaultAppStorage(state.defaults)
+                .preferredColorScheme(state.isDemo && ProcessInfo.processInfo.environment["TASK_FERRY_DEMO_APPEARANCE"] == "dark" ? .dark : nil)
         }
-        .defaultSize(width: 920, height: 640)
+        .defaultSize(width: state.mode == .remote ? 920 : 520, height: state.mode == .remote ? 640 : 480)
         .windowResizability(.contentMinSize)
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
@@ -36,6 +38,8 @@ struct TaskFerryApp: App {
 
         Settings {
             SettingsView(state: state)
+                .defaultAppStorage(state.defaults)
+                .preferredColorScheme(state.isDemo && ProcessInfo.processInfo.environment["TASK_FERRY_DEMO_APPEARANCE"] == "dark" ? .dark : nil)
         }
     }
 
@@ -124,7 +128,7 @@ private struct TaskFerryCommands: Commands {
             .disabled(actions == nil)
 
             Button("Quick Reminder…") {
-                QuickEntryPanelController.shared.show(state: state)
+                QuickEntryPanelController.shared.show(state: state, restoresWorkspaceFocus: true)
             }
             .disabled(state.mode != .remote)
 
@@ -255,7 +259,7 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
 
         // Registered now, not deferred: a Services request can be what launched the app.
         servicesProvider = ServicesProvider(state: state)
-        NSApp.servicesProvider = servicesProvider
+        if !state.isDemo { NSApp.servicesProvider = servicesProvider }
 
         if shouldRunHidden {
             DispatchQueue.main.async {
@@ -349,7 +353,7 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func dockQuickReminder() {
-        QuickEntryPanelController.shared.show(state: state)
+        QuickEntryPanelController.shared.show(state: state, restoresWorkspaceFocus: true)
     }
 
     @objc private func dockShowReminder(_ sender: NSMenuItem) {
