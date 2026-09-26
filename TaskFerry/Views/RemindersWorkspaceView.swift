@@ -1135,7 +1135,11 @@ private struct QuickTaskComposer: View {
             if selection.quickDue != nil || lockedListID == nil {
                 HStack(spacing: 10) {
                     if let due = selection.quickDue {
-                        Label(due.title, systemImage: "calendar")
+                        Label {
+                            Text(due.title)
+                        } icon: {
+                            Image(systemName: "calendar")
+                        }
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

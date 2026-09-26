@@ -634,7 +634,15 @@ final class AppState {
 
     @discardableResult
     func createList(title: String, colorHex: String? = nil) async -> MutationOutcome {
-        await perform(RPCRequest(operation: .upsertList, title: title, colorHex: colorHex))
+        let knownIDs = Set(snapshot.lists.map(\.id))
+        var outcome = await perform(RPCRequest(operation: .upsertList, title: title, colorHex: colorHex))
+        if outcome.succeeded, outcome.createdID == nil {
+            // Protocol-1 bridges return the updated snapshot without a created identifier.
+            let candidates = snapshot.lists.filter { !knownIDs.contains($0.id) && $0.title == title.trimmed }
+            // Don't navigate to an arbitrary list if another client created the same title.
+            if candidates.count == 1 { outcome.createdID = candidates[0].id }
+        }
+        return outcome
     }
 
     @discardableResult
