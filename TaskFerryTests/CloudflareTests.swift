@@ -258,11 +258,12 @@ final class CloudflareTests: XCTestCase {
         )
 
         let requests = recorder.snapshot()
-        XCTAssertEqual(requests.map(\.method), ["DELETE", "DELETE", "DELETE", "DELETE"])
+        XCTAssertEqual(requests.map(\.method), ["DELETE", "DELETE", "DELETE", "DELETE", "DELETE"])
         XCTAssertEqual(requests.map(\.path), [
             "/client/v4/zones/zone-id/dns_records/dns-id",
             "/client/v4/zones/zone-id/access/apps/app-id",
             "/client/v4/accounts/account-id/access/service_tokens/service-token-id",
+            "/client/v4/accounts/account-id/cfd_tunnel/tunnel-id/connections",
             "/client/v4/accounts/account-id/cfd_tunnel/tunnel-id"
         ])
         XCTAssertTrue(requests.allSatisfy { $0.authorization == "Bearer oauth-access-token" })

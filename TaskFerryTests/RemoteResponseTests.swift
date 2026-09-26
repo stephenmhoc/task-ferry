@@ -26,7 +26,7 @@ final class RemoteResponseTests: XCTestCase {
         ))
 
         XCTAssertThrowsError(try RemoteReminderService.decode(data: Data("gateway".utf8), response: response)) { error in
-            XCTAssertEqual(error.localizedDescription, "The bridge returned HTTP 502.")
+            XCTAssertEqual(error.localizedDescription, "The bridge Mac isn’t reachable. Make sure Task Ferry is running there.")
         }
     }
 

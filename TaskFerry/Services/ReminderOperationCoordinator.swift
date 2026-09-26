@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 final class ReminderOperationCoordinator {
     enum Outcome: Equatable, Sendable {
-        case success(ReminderSnapshot)
+        case success(RPCResult)
         case failure(String)
         case unavailable
         case superseded
@@ -11,6 +11,11 @@ final class ReminderOperationCoordinator {
         var succeeded: Bool {
             if case .success = self { return true }
             return false
+        }
+
+        var result: RPCResult? {
+            if case .success(let result) = self { return result }
+            return nil
         }
     }
 

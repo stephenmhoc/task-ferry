@@ -6,10 +6,8 @@ enum ListEditorContext: Identifiable {
 
     var id: String {
         switch self {
-        case .create:
-            "create"
-        case .edit(let list):
-            "edit:\(list.id)"
+        case .create: "create"
+        case .edit(let list): "edit:\(list.id)"
         }
     }
 
@@ -25,6 +23,7 @@ struct ListEditorSheet: View {
     let context: ListEditorContext
 
     @State private var title: String
+    @State private var colorHex: String
     @State private var isSaving = false
     @State private var isDeleting = false
     @State private var confirmingDelete = false
@@ -34,42 +33,58 @@ struct ListEditorSheet: View {
         self.state = state
         self.context = context
         _title = State(initialValue: context.list?.title ?? "")
+        _colorHex = State(initialValue: context.list?.colorHex.uppercased() ?? TaskFerryPalette.defaultListHex)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            HStack(spacing: 14) {
-                Image(systemName: context.list == nil ? "plus" : "square.grid.2x2.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(accentColor)
-                    .frame(width: 40, height: 40)
-                    .background(accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 11))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(context.list == nil ? "New List" : "Edit List")
-                        .font(.title2.weight(.semibold))
-                    Text("Lists stay in sync with Apple Reminders.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 12) {
+                Image(systemName: "list.bullet.circle.fill")
+                    .font(.system(size: 34))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(Color(hex: colorHex))
+                    .accessibilityHidden(true)
+                Text(context.list == nil ? "New List" : "List Info")
+                    .font(.title2.weight(.semibold))
             }
 
             if let error = state.errorMessage {
                 ErrorBanner(message: error) { state.dismissError() }
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("NAME")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                TextField("List name", text: $title)
-                    .textFieldStyle(.roundedBorder)
-                    .controlSize(.large)
+            Form {
+                TextField("Name:", text: $title)
                     .focused($titleIsFocused)
                     .onSubmit(save)
-            }
 
-            Divider()
+                LabeledContent("Color:") {
+                    HStack(spacing: 6) {
+                        ForEach(TaskFerryPalette.listColors, id: \.hex) { option in
+                            Button {
+                                colorHex = option.hex
+                            } label: {
+                                Circle()
+                                    .fill(Color(hex: option.hex))
+                                    .frame(width: 18, height: 18)
+                                    .overlay {
+                                        if colorHex == option.hex {
+                                            Circle().strokeBorder(.primary, lineWidth: 2).padding(-3)
+                                        }
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .help(Text(option.name))
+                            .accessibilityLabel(Text(option.name))
+                            .accessibilityAddTraits(colorHex == option.hex ? .isSelected : [])
+                        }
+                    }
+                }
+            }
+            .formStyle(.columns)
+
+            Text("Lists stay in sync with Apple Reminders.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
 
             HStack {
                 if context.list != nil {
@@ -85,25 +100,22 @@ struct ListEditorSheet: View {
                     .keyboardShortcut(.cancelAction)
                     .disabled(isSaving || isDeleting)
 
-                Button(isSaving ? "Saving…" : "Save", action: save)
+                Button(isSaving ? "Saving…" : (context.list == nil ? "Create" : "Save"), action: save)
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
                     .disabled(isSaving || isDeleting || title.trimmed.isEmpty)
             }
         }
-        .padding(24)
-        .frame(width: 430)
+        .padding(22)
+        .frame(width: 440)
+        .fixedSize(horizontal: false, vertical: true)
         .task { titleIsFocused = true }
-        .alert("Delete “\(context.list?.title ?? "this list")”?", isPresented: $confirmingDelete) {
+        .alert(Text("Delete “\(context.list?.title ?? "")”?"), isPresented: $confirmingDelete) {
             Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive, action: deleteList)
+            Button("Delete List", role: .destructive, action: deleteList)
         } message: {
             Text("This also deletes every reminder in the list, including completed reminders. This can’t be undone.")
         }
-    }
-
-    private var accentColor: Color {
-        Color(hex: context.list?.colorHex ?? TaskFerryPalette.defaultListHex)
     }
 
     private func save() {
@@ -113,9 +125,10 @@ struct ListEditorSheet: View {
         Task {
             let succeeded: Bool
             if let list = context.list {
-                succeeded = await state.renameList(list, title: cleanTitle)
+                let color = colorHex == list.colorHex.uppercased() ? nil : colorHex
+                succeeded = await state.renameList(list, title: cleanTitle, colorHex: color)
             } else {
-                succeeded = await state.createList(title: cleanTitle)
+                succeeded = await state.createList(title: cleanTitle, colorHex: colorHex).succeeded
             }
 
             if succeeded {

@@ -11,10 +11,39 @@ enum DockBadgeScope: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
-    var title: String {
+    var title: LocalizedStringResource {
         switch self {
         case .todayAndOverdue: "Today & Overdue"
         case .overdueOnly: "Overdue Only"
+        }
+    }
+}
+
+/// The due-date shortcuts offered by Quick Entry, menus, drag targets, notifications, and URLs.
+enum QuickDueOption: String, CaseIterable, Identifiable, Sendable {
+    case none
+    case today
+    case tomorrow
+
+    var id: Self { self }
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .none: "None"
+        case .today: "Today"
+        case .tomorrow: "Tomorrow"
+        }
+    }
+
+    func due(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> ReminderDue? {
+        switch self {
+        case .none:
+            return nil
+        case .today:
+            return ReminderDue(date: now, includesTime: false, calendar: calendar)
+        case .tomorrow:
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+            return ReminderDue(date: tomorrow, includesTime: false, calendar: calendar)
         }
     }
 }
@@ -69,13 +98,29 @@ struct ReminderDue: Codable, Hashable, Sendable {
         ))
     }
 
+    /// The calendar day this reminder falls on for someone using `calendar`.
+    ///
+    /// Date-only reminders float, so their stored components are the day everywhere. A timed reminder
+    /// pinned to another time zone can land on a different local day, so it is converted first.
+    private func localDayComponents(calendar: Calendar) -> (year: Int?, month: Int?, day: Int?) {
+        if hasTime, timeZoneIdentifier != nil, let instant = date(calendar: calendar) {
+            let parts = calendar.dateComponents([.year, .month, .day], from: instant)
+            return (parts.year, parts.month, parts.day)
+        }
+        return (year, month, day)
+    }
+
     func isSameDay(as date: Date, calendar: Calendar = .autoupdatingCurrent) -> Bool {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
-        return year == parts.year && month == parts.month && day == parts.day
+        let own = localDayComponents(calendar: calendar)
+        return own.year == parts.year && own.month == parts.month && own.day == parts.day
     }
 
     func isBeforeDay(_ date: Date, calendar: Calendar = .autoupdatingCurrent) -> Bool {
-        guard let ownDate = self.date(calendar: calendar) else { return false }
+        let own = localDayComponents(calendar: calendar)
+        guard let ownDate = calendar.date(from: DateComponents(year: own.year, month: own.month, day: own.day)) else {
+            return false
+        }
         return calendar.startOfDay(for: ownDate) < calendar.startOfDay(for: date)
     }
 }
@@ -112,6 +157,10 @@ enum RPCOperation: String, Codable, Sendable {
 }
 
 struct RPCRequest: Codable, Sendable {
+    /// The newest protocol this build speaks. Bridges advertise it so remotes only rely on
+    /// features, such as retrying with ``requestID``, that the bridge actually honors.
+    static let currentProtocolVersion = 2
+
     var operation: RPCOperation
     var id: String? = nil
     var title: String? = nil
@@ -119,6 +168,10 @@ struct RPCRequest: Codable, Sendable {
     var listID: String? = nil
     var due: ReminderDue? = nil
     var completed: Bool? = nil
+    /// Optional list color for `upsertList`. Older bridges ignore it.
+    var colorHex: String? = nil
+    /// Identifies one logical mutation so a retried request is applied at most once.
+    var requestID: String? = nil
 
     static let snapshot = RPCRequest(operation: .snapshot)
 }
@@ -126,6 +179,16 @@ struct RPCRequest: Codable, Sendable {
 struct RPCResponse: Codable, Sendable {
     var snapshot: ReminderSnapshot? = nil
     var error: String? = nil
+    /// The identifier EventKit assigned to a newly created reminder or list.
+    var createdID: String? = nil
+    var protocolVersion: Int? = nil
+}
+
+/// What a reminder service returns for every request: the authoritative snapshot, plus the
+/// identifier of anything the request created.
+struct RPCResult: Equatable, Sendable {
+    var snapshot: ReminderSnapshot
+    var createdID: String? = nil
 }
 
 enum ReminderServiceError: LocalizedError {

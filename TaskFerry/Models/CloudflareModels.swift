@@ -33,6 +33,7 @@ enum CloudflareConnectorState: Equatable, Sendable {
     case stopped
     case starting
     case connected
+    case reconnecting
     case failed(String)
 }
 

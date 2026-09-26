@@ -353,6 +353,13 @@ final class CloudflareAPIClient: @unchecked Sendable {
             path: "accounts/\(provisioning.accountID)/access/service_tokens/\(provisioning.serviceTokenID)",
             accessToken: accessToken
         ) { failures.append(failure) }
+        // Cloudflare refuses to delete a tunnel that still has edge connections, and the connector
+        // was only just asked to stop. Clearing its connections first makes removal succeed on
+        // the first try.
+        _ = await deleteFailure(
+            path: "accounts/\(provisioning.accountID)/cfd_tunnel/\(provisioning.tunnelID)/connections",
+            accessToken: accessToken
+        )
         if let failure = await deleteFailure(
             path: "accounts/\(provisioning.accountID)/cfd_tunnel/\(provisioning.tunnelID)",
             accessToken: accessToken

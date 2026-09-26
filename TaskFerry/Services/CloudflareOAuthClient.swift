@@ -96,10 +96,18 @@ final class CloudflareOAuthClient {
         }
         let receiver = try CloudflareOAuthLoopbackReceiver(redirectURL: redirectURL)
         defer { receiver.stop() }
-        try await receiver.start()
-        let callbackURL = try await receiver.receiveCallback {
-            NSWorkspace.shared.open(authorizationURL)
+        // Cancelling the calling task (the sheet's Cancel button) stops listening at once, instead
+        // of leaving the sheet waiting for a browser tab the user may have closed.
+        let callbackURL = try await withTaskCancellationHandler {
+            try await receiver.start()
+            try Task.checkCancellation()
+            return try await receiver.receiveCallback {
+                NSWorkspace.shared.open(authorizationURL)
+            }
+        } onCancel: {
+            Task { @MainActor in receiver.stop() }
         }
+        try Task.checkCancellation()
 
         guard callbackURL.scheme == redirectURL.scheme,
               callbackURL.host == redirectURL.host,
@@ -159,7 +167,7 @@ final class CloudflareOAuthClient {
 
     private func exchange(code: String, verifier: String) async throws -> String {
         guard let url = URL(string: "https://dash.cloudflare.com/oauth2/token") else {
-            throw ReminderServiceError.message("Cloudflare's token endpoint is unavailable.")
+            throw ReminderServiceError.message("Cloudflare’s token endpoint is unavailable.")
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -228,7 +236,7 @@ final class CloudflareOAuthLoopbackReceiver {
     private var callbackContinuation: CheckedContinuation<URL, Error>?
     private var timeoutTask: Task<Void, Never>?
 
-    init(redirectURL: URL, timeout: Duration = .seconds(900)) throws {
+    init(redirectURL: URL, timeout: Duration = .seconds(600)) throws {
         guard redirectURL.scheme == "http",
               redirectURL.host == "127.0.0.1",
               let port = redirectURL.port,

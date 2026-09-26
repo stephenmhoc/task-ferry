@@ -3,6 +3,8 @@ import Foundation
 @MainActor
 final class DemoReminderService: ReminderService {
     private var value: ReminderSnapshot
+    /// Completed reminders stay here, as they do in EventKit, so completion can be undone.
+    private var completed: [ReminderRecord] = []
 
     init(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) {
         let today = ReminderDue(date: now, includesTime: false, calendar: calendar)
@@ -31,7 +33,8 @@ final class DemoReminderService: ReminderService {
         )
     }
 
-    func execute(_ request: RPCRequest) async throws -> ReminderSnapshot {
+    func execute(_ request: RPCRequest) async throws -> RPCResult {
+        var createdID: String?
         switch request.operation {
         case .snapshot:
             break
@@ -44,8 +47,13 @@ final class DemoReminderService: ReminderService {
                     throw ReminderServiceError.message("That list is no longer editable.")
                 }
                 value.lists[index].title = title
+                if let colorHex = request.colorHex {
+                    value.lists[index].colorHex = colorHex
+                }
             } else {
-                value.lists.append(ReminderListRecord(id: UUID().uuidString, title: title, colorHex: "30D158"))
+                let id = UUID().uuidString
+                value.lists.append(ReminderListRecord(id: id, title: title, colorHex: request.colorHex ?? "30D158"))
+                createdID = id
             }
         case .deleteList:
             guard let id = request.id, value.lists.contains(where: { $0.id == id }) else {
@@ -53,6 +61,7 @@ final class DemoReminderService: ReminderService {
             }
             value.lists.removeAll { $0.id == id }
             value.reminders.removeAll { $0.listID == id }
+            completed.removeAll { $0.listID == id }
             if value.defaultListID == id {
                 value.defaultListID = value.lists.first?.id
             }
@@ -73,20 +82,29 @@ final class DemoReminderService: ReminderService {
                 value.reminders[index].listID = listID
                 value.reminders[index].due = request.due
             } else {
+                let id = UUID().uuidString
                 value.reminders.append(ReminderRecord(
-                    id: UUID().uuidString,
+                    id: id,
                     listID: listID,
                     title: title,
                     notes: request.notes.flatMap { $0.trimmed.isEmpty ? nil : $0 },
                     due: request.due
                 ))
+                createdID = id
             }
         case .setCompleted:
-            guard let id = request.id, value.reminders.contains(where: { $0.id == id }) else {
+            guard let id = request.id else {
                 throw ReminderServiceError.message("That reminder changed elsewhere. Refresh and try again.")
             }
-            if request.completed == true {
-                value.reminders.removeAll { $0.id == id }
+            if request.completed ?? true {
+                guard let index = value.reminders.firstIndex(where: { $0.id == id }) else {
+                    throw ReminderServiceError.message("That reminder changed elsewhere. Refresh and try again.")
+                }
+                completed.append(value.reminders.remove(at: index))
+            } else if let index = completed.firstIndex(where: { $0.id == id }) {
+                value.reminders.append(completed.remove(at: index))
+            } else if !value.reminders.contains(where: { $0.id == id }) {
+                throw ReminderServiceError.message("That reminder changed elsewhere. Refresh and try again.")
             }
         case .deleteReminder:
             guard let id = request.id, value.reminders.contains(where: { $0.id == id }) else {
@@ -95,6 +113,6 @@ final class DemoReminderService: ReminderService {
             value.reminders.removeAll { $0.id == id }
         }
         value.lists.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
-        return value
+        return RPCResult(snapshot: value, createdID: createdID)
     }
 }

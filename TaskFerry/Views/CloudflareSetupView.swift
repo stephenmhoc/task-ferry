@@ -17,6 +17,10 @@ struct CloudflareSetupView: View {
     @State private var oauthClient: CloudflareOAuthClient?
     @State private var isWorking = false
     @State private var message: String?
+    @State private var work: Task<Void, Never>?
+    /// True while Cloudflare resources are being created or deleted. That step, and its rollback,
+    /// must run to completion, so it can't be cancelled.
+    @State private var isCommitting = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -43,19 +47,21 @@ struct CloudflareSetupView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer()
-
             HStack {
-                Button("Cancel") { dismiss() }
-                    .disabled(isWorking)
+                Button("Cancel", action: cancel)
+                    .keyboardShortcut(.cancelAction)
+                    .disabled(isCommitting)
                 Spacer()
                 actionButton
+                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
-        .frame(width: 500, height: 410)
-        .interactiveDismissDisabled(isWorking)
+        .frame(width: 500)
+        .fixedSize(horizontal: false, vertical: true)
+        .interactiveDismissDisabled(isCommitting)
         .onDisappear {
+            if !isCommitting { work?.cancel() }
             guard let token = accessToken, let oauthClient else { return }
             Task { await oauthClient.revoke(token) }
         }
@@ -64,7 +70,7 @@ struct CloudflareSetupView: View {
     private var authorizationContent: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 10) {
-                Label("Your browser opens Cloudflare's sign-in page.", systemImage: "safari")
+                Label("Your browser opens Cloudflare’s sign-in page.", systemImage: "safari")
                 Label("You choose the Cloudflare account and approve limited access.", systemImage: "person.crop.circle.badge.checkmark")
                 Label("Task Ferry creates only its own tunnel, DNS record, and Access credentials.", systemImage: "lock.shield")
                 Label("The temporary Cloudflare authorization is revoked when setup finishes.", systemImage: "clock.arrow.circlepath")
@@ -83,15 +89,18 @@ struct CloudflareSetupView: View {
                     description: Text("Add an active domain to this Cloudflare account, then try again.")
                 )
             } else {
-                Picker("Domain", selection: $selectedZoneID) {
-                    ForEach(zones) { zone in
-                        Text("\(zone.name) — \(zone.accountName)").tag(zone.id)
+                Form {
+                    Picker("Domain:", selection: $selectedZoneID) {
+                        ForEach(zones) { zone in
+                            Text("\(zone.name) — \(zone.accountName)").tag(zone.id)
+                        }
+                    }
+                    TextField("Subdomain:", text: $subdomain)
+                    if let selectedZone {
+                        LabeledContent("Public address:", value: previewHostname(for: selectedZone))
                     }
                 }
-                TextField("Subdomain", text: $subdomain)
-                if let selectedZone {
-                    LabeledContent("Public address", value: previewHostname(for: selectedZone))
-                }
+                .formStyle(.columns)
                 Text("Cloudflare Zero Trust must already be activated for the selected account. Its free plan is sufficient.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -120,22 +129,35 @@ struct CloudflareSetupView: View {
     private var actionButton: some View {
         if isRemoval {
             Button(isWorking ? "Removing…" : "Authorize & Remove", role: .destructive) {
-                Task { await remove() }
+                run { await remove() }
             }
             .disabled(isWorking)
         } else if accessToken == nil {
-            Button(isWorking ? "Connecting…" : "Continue in Browser") {
-                Task { await connect() }
+            Button(isWorking ? "Waiting for Browser…" : "Continue in Browser") {
+                run { await connect() }
             }
             .buttonStyle(.borderedProminent)
             .disabled(isWorking)
         } else {
             Button(isWorking ? "Setting Up…" : "Create Private Connection") {
+                // Not tied to Cancel: creating resources and rolling back must finish.
                 Task { await provision() }
             }
             .buttonStyle(.borderedProminent)
             .disabled(isWorking || selectedZone == nil)
         }
+    }
+
+    private func run(_ operation: @escaping @MainActor () async -> Void) {
+        work?.cancel()
+        work = Task { await operation() }
+    }
+
+    /// Cancel always works. While waiting on the browser, it stops listening for Cloudflare's
+    /// response right away, and any temporary authorization is revoked.
+    private func cancel() {
+        work?.cancel()
+        dismiss()
     }
 
     private var isRemoval: Bool {
@@ -145,7 +167,7 @@ struct CloudflareSetupView: View {
 
     private var explanation: String {
         if isRemoval {
-            return "This removes Task Ferry's resources from your own Cloudflare account."
+            return "This removes Task Ferry’s resources from your own Cloudflare account."
         }
         return "Use your own Cloudflare account without installing or running the Cloudflare CLI yourself."
     }
@@ -182,6 +204,8 @@ struct CloudflareSetupView: View {
         isWorking = true
         message = nil
         let api = CloudflareAPIClient()
+        isCommitting = true
+        defer { isCommitting = false }
         do {
             let result = try await api.provision(
                 zone: selectedZone,
@@ -214,6 +238,8 @@ struct CloudflareSetupView: View {
             self.oauthClient = oauthClient
             let token = try await oauthClient.authorize()
             accessToken = token
+            isCommitting = true
+            defer { isCommitting = false }
             state.stopCloudflareConnector()
             try await CloudflareAPIClient().deleteProvisioning(provisioning, accessToken: token)
             try await state.removeStoredCloudflareProvisioning()

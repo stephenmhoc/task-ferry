@@ -9,6 +9,7 @@ TASK_FERRY_DERIVED_DATA="${1:-$TASK_FERRY_ROOT/.derivedData-tests}"
 TASK_FERRY_SPM_CACHE="${TASK_FERRY_SPM_CACHE:-$TASK_FERRY_DERIVED_DATA/SourcePackages}"
 
 cd "$TASK_FERRY_ROOT"
+scripts/fetch-cloudflared.sh
 xcodegen generate
 xcodebuild test \
   -project TaskFerry.xcodeproj \
