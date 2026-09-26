@@ -57,6 +57,16 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild build \
 
 Run the host-independent core tests with `scripts/test.sh`. The same command is used by CI and every release build.
 
+The tests also start the production bridge listener on localhost with an in-memory reminder store and check HTTP authentication, request validation, reminder mutations, loopback binding, and shutdown/restart. To repeat just these checks on the normal bridge port after building the test bundle (stop any existing bridge first):
+
+```sh
+TASK_FERRY_BRIDGE_TEST_PORT=8788 xcrun xctest \
+  -XCTest BridgeServerIntegrationTests \
+  .derivedData-tests/Build/Products/Debug/TaskFerryTests.xctest
+```
+
+This runs real TCP requests without accessing EventKit, Keychain, or Cloudflare, and closes the listener when finished.
+
 For the safe sample UI used during development:
 
 ```sh

@@ -25,6 +25,7 @@
 		33E2C016D284FD4FA8F06763 /* ReminderEditSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20FA28251C07E784FA766CE0 /* ReminderEditSession.swift */; };
 		345B0169000F29C43930EDCD /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 089F88EF1D818C5FAA3BCBED /* Models.swift */; };
 		3536FB1D4DC136361C402B0A /* CredentialStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD6BCBB679D119D6A82AFD5 /* CredentialStoreTests.swift */; };
+		3758D69A02A06CA667C2DC6B /* BridgeServerIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17F6E528AAF8880091DCBE0F /* BridgeServerIntegrationTests.swift */; };
 		385A5F1D577D4B3156E0A10F /* ReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC41129763EBE01D6A625BBD /* ReminderService.swift */; };
 		3B18B11D0A030BBA15951BA2 /* Pasteboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D29BDF8DAB2B1F9950C6D93 /* Pasteboard.swift */; };
 		3F08DBEB2EAC14B05BFBC2B9 /* WindowRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03C666FD1D25AE51374C8E09 /* WindowRouter.swift */; };
@@ -113,6 +114,7 @@
 		0A48421F551E6D43793CFE8E /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateManager.swift; sourceTree = "<group>"; };
 		0CE6CCA0DD41D67E216A2067 /* Credits.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Credits.rtf; sourceTree = "<group>"; };
 		14931A8D7EE4CFA217D04514 /* CloudflareModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareModels.swift; sourceTree = "<group>"; };
+		17F6E528AAF8880091DCBE0F /* BridgeServerIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeServerIntegrationTests.swift; sourceTree = "<group>"; };
 		1D1C27B37CB3983980FF4A52 /* ReliabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReliabilityTests.swift; sourceTree = "<group>"; };
 		1F6088535CD32B9C816E9F2B /* RemoteResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteResponseTests.swift; sourceTree = "<group>"; };
 		20FA28251C07E784FA766CE0 /* ReminderEditSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderEditSession.swift; sourceTree = "<group>"; };
@@ -186,6 +188,7 @@
 			isa = PBXGroup;
 			children = (
 				38E8840EF7BFF9853B10184D /* AppStateTests.swift */,
+				17F6E528AAF8880091DCBE0F /* BridgeServerIntegrationTests.swift */,
 				FAF8E926CF285ABECAE72C01 /* BridgeTokenTests.swift */,
 				83EC11A6BDE300EF3C284C27 /* CloudflareTests.swift */,
 				BCD6BCBB679D119D6A82AFD5 /* CredentialStoreTests.swift */,
@@ -490,6 +493,7 @@
 				A12E488D755416D3440C41C5 /* AppState.swift in Sources */,
 				F3D28366C540A872F5CB4D06 /* AppStateTests.swift in Sources */,
 				019DA8B69F9303A895B4E5A5 /* BridgeServer.swift in Sources */,
+				3758D69A02A06CA667C2DC6B /* BridgeServerIntegrationTests.swift in Sources */,
 				331D68E426A507C9820BB001 /* BridgeTokenTests.swift in Sources */,
 				8918D1DF896DBCBB169D1606 /* CloudflareAPIClient.swift in Sources */,
 				07C7D422EC5FE4EE51F3FBC8 /* CloudflareModels.swift in Sources */,
