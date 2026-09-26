@@ -71,6 +71,56 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.errorMessage, "Mutation failed")
     }
 
+    func testListCreationFindsNewIDFromLegacyBridgeSnapshot() async throws {
+        let outcome = await createListUsingBridge(
+            newLists: [
+                ReminderListRecord(id: "unrelated", title: "Another client", colorHex: "000000"),
+                ReminderListRecord(id: "created", title: "Projects", colorHex: "000000")
+            ]
+        )
+        XCTAssertTrue(outcome.succeeded)
+        XCTAssertEqual(outcome.createdID, "created")
+    }
+
+    func testListCreationDoesNotGuessBetweenConcurrentLegacyLists() async {
+        let outcome = await createListUsingBridge(newLists: [
+            ReminderListRecord(id: "first", title: "Projects", colorHex: "000000"),
+            ReminderListRecord(id: "second", title: "Projects", colorHex: "000000")
+        ])
+        XCTAssertTrue(outcome.succeeded)
+        XCTAssertNil(outcome.createdID)
+    }
+
+    func testListCreationPrefersIdentifierReportedByModernBridge() async {
+        let outcome = await createListUsingBridge(newLists: [
+            ReminderListRecord(id: "first", title: "Projects", colorHex: "000000"),
+            ReminderListRecord(id: "second", title: "Projects", colorHex: "000000")
+        ], createdID: "second")
+        XCTAssertTrue(outcome.succeeded)
+        XCTAssertEqual(outcome.createdID, "second")
+    }
+
+    private func createListUsingBridge(newLists: [ReminderListRecord], createdID: String? = nil) async -> MutationOutcome {
+        let suiteName = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
+        defaults.set("https://example.com", forKey: AppPreferences.endpoint)
+        let service = ListCreationService(newLists: newLists, createdID: createdID)
+        let state = AppState(
+            isDemo: false, defaults: defaults,
+            credentialStore: InMemoryCredentialStore(values: ["remote-bridge-token": "TEST-TOKEN"]),
+            serviceFactory: ReminderServiceFactory(
+                makeBridgeService: { service }, makeRemoteService: { _ in service },
+                makeBridgeServer: { BridgeServer(operations: $0, token: $1) }
+            ),
+            snapshotCache: .disabled
+        )
+        defer { state.prepareForTermination() }
+        await state.refresh()
+        return await state.createList(title: "  Projects  ", colorHex: "FF0000")
+    }
+
     func testFailedFirstRefreshDoesNotMarkSnapshotAsLoaded() async {
         let suiteName = "TaskFerryTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -245,6 +295,28 @@ final class AppStateTests: XCTestCase {
             state.allReminders.map(\.id),
             ["earlier", "later", "undated-a", "undated-z"]
         )
+    }
+}
+
+@MainActor
+private final class ListCreationService: ReminderService {
+    private var snapshot = ReminderSnapshot(lists: [
+        ReminderListRecord(id: "existing", title: "Projects", colorHex: "000000")
+    ], reminders: [])
+    private let newLists: [ReminderListRecord]
+    private let createdID: String?
+
+    init(newLists: [ReminderListRecord], createdID: String?) {
+        self.newLists = newLists
+        self.createdID = createdID
+    }
+
+    func execute(_ request: RPCRequest) async throws -> RPCResult {
+        if request.operation == .upsertList {
+            snapshot.lists += newLists
+            return RPCResult(snapshot: snapshot, createdID: createdID)
+        }
+        return RPCResult(snapshot: snapshot)
     }
 }
 

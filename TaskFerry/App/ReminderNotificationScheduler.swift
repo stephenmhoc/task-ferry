@@ -22,16 +22,16 @@ final class ReminderNotificationScheduler: NSObject, UNUserNotificationCenterDel
     private var isInstalled = false
     private lazy var center = UNUserNotificationCenter.current()
 
-    init(state: AppState, defaults: UserDefaults = .standard) {
+    init(state: AppState, defaults: UserDefaults? = nil) {
         self.state = state
-        self.defaults = defaults
+        self.defaults = state.isDemo ? state.defaults : (defaults ?? .standard)
         super.init()
     }
 
     /// Becomes the notification delegate. This must happen before launch finishes, so actions
     /// chosen while Task Ferry wasn't running are delivered.
     func install() {
-        guard !isInstalled else { return }
+        guard !state.isDemo, !isInstalled else { return }
         isInstalled = true
         center.delegate = self
         center.setNotificationCategories([
@@ -57,6 +57,7 @@ final class ReminderNotificationScheduler: NSObject, UNUserNotificationCenterDel
 
     /// Turns alerts on or off. Returns false if macOS permission was denied.
     func setEnabled(_ enabled: Bool) async -> Bool {
+        if state.isDemo { defaults.set(enabled, forKey: AppPreferences.notifiesWhenDue); return true }
         install()
         if enabled {
             let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
@@ -77,6 +78,7 @@ final class ReminderNotificationScheduler: NSObject, UNUserNotificationCenterDel
     }
 
     func reconcile() {
+        guard !state.isDemo else { return }
         // Alerts have never been turned on this session, so there is nothing to schedule or clear.
         guard isEnabled || isInstalled else { return }
         install()

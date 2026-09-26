@@ -32,6 +32,11 @@ struct CloudflareSetupView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if state.isDemo {
+                Text("Demo mode: Cloudflare authorization and provisioning are disabled.")
+                    .foregroundStyle(.secondary)
+            }
+
             if isRemoval {
                 removalContent
             } else if accessToken == nil {
@@ -53,6 +58,7 @@ struct CloudflareSetupView: View {
                     .disabled(isCommitting)
                 Spacer()
                 actionButton
+                    .disabled(state.isDemo)
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -181,6 +187,7 @@ struct CloudflareSetupView: View {
     }
 
     private func connect() async {
+        guard !state.isDemo else { return }
         guard !isWorking else { return }
         isWorking = true
         message = nil
@@ -200,6 +207,7 @@ struct CloudflareSetupView: View {
     }
 
     private func provision() async {
+        guard !state.isDemo else { return }
         guard !isWorking, let token = accessToken, let selectedZone else { return }
         isWorking = true
         message = nil
@@ -229,6 +237,7 @@ struct CloudflareSetupView: View {
     }
 
     private func remove() async {
+        guard !state.isDemo else { return }
         guard !isWorking, case .remove(let provisioning) = purpose else { return }
         isWorking = true
         message = nil

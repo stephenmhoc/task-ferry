@@ -63,7 +63,9 @@ For the safe sample UI used during development:
 TASK_FERRY_DEMO=1 .derivedData/Build/Products/Debug/TaskFerry.app/Contents/MacOS/TaskFerry
 ```
 
-Demo mode is in-memory and never requests Reminders access. Set `TASK_FERRY_DEMO_ROLE=bridge` to verify the bridge UI safely.
+Demo mode uses in-memory reminders and isolated preferences, including after changing roles. It does not access Keychain, request Reminders or notification permission, register login items or global shortcuts, register Services, start listeners/connectors, provision Cloudflare, or start Sparkle. Set `TASK_FERRY_DEMO_ROLE=bridge` to verify the bridge UI safely.
+
+Use `TASK_FERRY_DEMO_SCENARIO` to exercise `unconfigured`, `empty`, `loading`, `offline`, `mutation-failure`, `long-content`, or `provisioned-bridge` (the default is `standard`). The mutation-failure scenario rejects the first change and accepts retries. The offline scenario shows an in-memory cached snapshot. Add `TASK_FERRY_DEMO_APPEARANCE=dark` for dark UI verification and `TASK_FERRY_DEMO_SIZE=compact` for a minimum-width workspace without changing macOS settings. Failed edit drafts remain available for Review, Retry, Copy Draft, or Discard while the app runs; they are not written to disk.
 
 ## Personal setup
 

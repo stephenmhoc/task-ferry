@@ -22,6 +22,12 @@ final class WindowRouter {
     func register(_ window: NSWindow) {
         guard !mainWindows.contains(window) else { return }
         mainWindows.add(window)
+        if TaskFerryRuntime.isDemo,
+           ProcessInfo.processInfo.environment["TASK_FERRY_DEMO_SIZE"] == "compact" {
+            Task { @MainActor [weak window] in
+                window?.setContentSize(NSSize(width: 580, height: 420))
+            }
+        }
         // A closed window must never be revived. Only windows that are open, even if ordered out
         // like a background bridge's, may be brought back.
         NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak window] _ in

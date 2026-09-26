@@ -112,11 +112,13 @@ struct RemindersWorkspaceView: View {
     @SceneStorage("TaskFerry.sidebar-selection") private var storedSelection = "today"
     @SceneStorage("TaskFerry.sidebar-hidden") private var sidebarHidden = false
     @State private var selection = Set<String>()
-    @State private var editingID: String?
+    @State private var editingSession: ReminderEditSession?
+    private var editingID: String? { editingSession?.original.id }
     @State private var searchText = ""
     @State private var isSearchPresented = false
     @State private var composerFocusRequest = 0
     @State private var listEditor: ListEditorContext?
+    @State private var focusComposerAfterSheet = false
     @State private var remindersPendingDeletion: [ReminderRecord] = []
     @State private var listPendingDeletion: ReminderListRecord?
     @State private var isDropTargeted = false
@@ -124,6 +126,18 @@ struct RemindersWorkspaceView: View {
     @Environment(\.undoManager) private var undoManager
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Keep the logical selection for commands, but let the editor own its neutral appearance.
+    /// AppKit otherwise forces selected-row text fields to white even on a custom background.
+    private var listSelection: Binding<Set<String>> {
+        Binding(
+            get: { selection.subtracting(editingID.map { [$0] } ?? []) },
+            set: { ids in
+                if editingID != nil && ids.isEmpty { return }
+                selection = ids
+            }
+        )
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: columnVisibility) {
@@ -133,9 +147,13 @@ struct RemindersWorkspaceView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .focusedSceneValue(\.workspaceActions, workspaceActions)
+        .onDisappear { persistCurrentEditor() }
         .onChange(of: storedSelection) { _, _ in
             selection = []
-            editingID = nil
+            endEditing()
+        }
+        .onChange(of: searchText) { _, _ in
+            selection.formIntersection(displayedReminders.map(\.id))
         }
         .onChange(of: state.snapshot.lists) { _, _ in
             repairSelectionIfNeeded()
@@ -144,7 +162,7 @@ struct RemindersWorkspaceView: View {
             let ids = Set(reminders.map(\.id))
             selection.formIntersection(ids)
             if let editingID, !ids.contains(editingID) {
-                self.editingID = nil
+                endEditing()
             }
         }
         .onChange(of: state.navigationRequest, initial: true) { _, request in
@@ -153,8 +171,16 @@ struct RemindersWorkspaceView: View {
         .onChange(of: state.hasLoadedSnapshot) { _, _ in
             consume(state.navigationRequest)
         }
-        .sheet(item: $listEditor) { context in
-            ListEditorSheet(state: state, context: context)
+        .sheet(item: $listEditor, onDismiss: {
+            if focusComposerAfterSheet {
+                focusComposerAfterSheet = false
+                composerFocusRequest += 1
+            }
+        }) { context in
+            ListEditorSheet(state: state, context: context) { id in
+                storedSelection = ReminderSidebarSelection.list(id).storageValue
+                focusComposerAfterSheet = true
+            }
         }
         .alert(
             ReminderDeletionCopy.title(count: remindersPendingDeletion.count),
@@ -278,6 +304,31 @@ struct RemindersWorkspaceView: View {
         return VStack(spacing: 0) {
             header(count: displayed.count)
 
+            ForEach(state.unsavedEdits.values.filter { $0.phase == .failed && $0.id != editingSession?.id }.sorted { $0.id.uuidString < $1.id.uuidString }) { draft in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Unsaved edit: \(draft.title)").lineLimit(2)
+                    HStack {
+                        Button("Review") {
+                            storedSelection = ReminderSidebarSelection.list(draft.original.listID).storageValue
+                            searchText = ""
+                            Task { @MainActor in
+                                selection = [draft.original.id]
+                                editingSession = draft
+                            }
+                        }
+                        .disabled(state.reminder(for: draft.original.id) == nil)
+                        Button("Retry") { Task { await state.saveEdit(draft, undoManager: undoManager) } }
+                            .disabled(state.reminder(for: draft.original.id) == nil)
+                        Button("Copy Draft") {
+                            Pasteboard.copy([draft.title, draft.notes].filter { !$0.isEmpty }.joined(separator: "\n"))
+                        }
+                        Button("Discard", role: .destructive) { state.discardEdit(draft) }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.callout).padding(.horizontal, 20).padding(.bottom, 10)
+            }
+
             if let error = state.errorMessage {
                 ErrorBanner(message: error, showsSettingsLink: state.errorNeedsSettings) { state.dismissError() }
                     .padding(.horizontal, 20)
@@ -291,8 +342,6 @@ struct RemindersWorkspaceView: View {
                     // Never claim "nothing to do" before the first sync has answered.
                     ProgressView("Loading your reminders…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if displayed.isEmpty {
-                    emptyState
                 } else {
                     reminderList(sections(for: displayed))
                 }
@@ -342,7 +391,7 @@ struct RemindersWorkspaceView: View {
                     Label("Mark as Completed", systemImage: "checkmark.circle")
                 }
                 .help("Mark as Completed (⌘K)")
-                .disabled(selection.isEmpty)
+                .disabled(selectedReminders.isEmpty)
             }
             ToolbarItem(id: "refresh", placement: .primaryAction, showsByDefault: false) {
                 Button(action: refresh) {
@@ -399,7 +448,7 @@ struct RemindersWorkspaceView: View {
 
     private func reminderList(_ sections: [ReminderSection]) -> some View {
         ScrollViewReader { proxy in
-            List(selection: $selection) {
+            List(selection: listSelection) {
                 ForEach(sections) { section in
                     if let title = section.title {
                         Section {
@@ -413,6 +462,7 @@ struct RemindersWorkspaceView: View {
                 }
             }
             .listStyle(.inset)
+            .overlay { if displayedReminders.isEmpty { emptyState } }
             .scrollContentBackground(.hidden)
             .focused($listFocused)
             .contextMenu(forSelectionType: String.self) { ids in
@@ -429,8 +479,10 @@ struct RemindersWorkspaceView: View {
                 return .handled
             }
             .onKeyPress(.escape) {
-                if editingID != nil {
-                    endEditing()
+                if let editingSession {
+                    guard editingSession.phase != .saving else { return .handled }
+                    state.discardEdit(editingSession)
+                    endEditing(restoreFocus: true)
                     return .handled
                 }
                 guard !selection.isEmpty else { return .ignored }
@@ -470,15 +522,17 @@ struct RemindersWorkspaceView: View {
     private func rows(_ section: ReminderSection) -> some View {
         ForEach(section.reminders) { reminder in
             Group {
-                if editingID == reminder.id {
+                if let session = editingSession, session.original.id == reminder.id {
                     InlineReminderEditor(
                         state: state,
-                        reminder: reminder,
-                        onSave: { save(reminder, title: $0, notes: $1, listID: $2, due: $3) },
+                        session: session,
                         onComplete: { complete([reminder]) },
                         onDelete: { requestDelete([reminder]) },
-                        onClose: endEditing
+                        onSave: saveCurrentEditor,
+                        onCancel: cancelCurrentEditor
                     )
+                    .id(session.id)
+                    .selectionDisabled()
                 } else {
                     ReminderRow(
                         state: state,
@@ -636,8 +690,8 @@ struct RemindersWorkspaceView: View {
             refresh: refresh,
             show: handle,
             lists: state.snapshot.lists,
-            hasSelection: !selection.isEmpty,
-            editSelection: { beginEditing(selection) },
+            hasSelection: !selectedReminders.isEmpty,
+            editSelection: { beginEditing(Set(selectedReminders.map(\.id))) },
             completeSelection: { complete(selectedReminders) },
             rescheduleSelection: { reschedule(selectedReminders, to: $0) },
             moveSelection: { move(selectedReminders, to: $0) }
@@ -694,17 +748,45 @@ struct RemindersWorkspaceView: View {
 
     private func beginEditing(_ ids: Set<String>) {
         guard let id = ids.count == 1 ? ids.first : displayedReminders.first(where: { ids.contains($0.id) })?.id else { return }
+        guard editingID != id else { return }
+        persistCurrentEditor()
         selection = [id]
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
-            editingID = id
+        editingSession = state.unsavedEdits.values.first(where: { $0.original.id == id })
+            ?? state.reminder(for: id).map(ReminderEditSession.init)
+    }
+
+    private func endEditing(restoreFocus: Bool = false) {
+        persistCurrentEditor()
+        editingSession = nil
+        if restoreFocus {
+            listFocused = false
+            Task { @MainActor in
+                await Task.yield()
+                listFocused = true
+            }
         }
     }
 
-    private func endEditing() {
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
-            editingID = nil
+    private func persistCurrentEditor() {
+        guard let session = editingSession else { return }
+        state.saveEditWhenLeaving(session, undoManager: undoManager)
+    }
+
+    // Read the current @State session when invoked. AppKit can reuse a text field's
+    // submit callback even after SwiftUI replaces the surrounding List row.
+    private func saveCurrentEditor() {
+        guard let session = editingSession else { return }
+        Task {
+            if await state.saveEdit(session, undoManager: undoManager), editingSession?.id == session.id {
+                endEditing(restoreFocus: true)
+            }
         }
-        listFocused = true
+    }
+
+    private func cancelCurrentEditor() {
+        guard let session = editingSession, session.phase != .saving else { return }
+        state.discardEdit(session)
+        endEditing(restoreFocus: true)
     }
 
     private func refresh() {
@@ -730,9 +812,12 @@ struct RemindersWorkspaceView: View {
     @discardableResult
     private func completeReporting(_ reminders: [ReminderRecord]) async -> Bool {
         guard !reminders.isEmpty else { return false }
+        if let session = editingSession, reminders.contains(where: { $0.id == session.original.id }) {
+            guard await state.saveEdit(session, undoManager: undoManager) else { return false }
+        }
         advanceSelection(past: reminders)
         if reminders.contains(where: { $0.id == editingID }) {
-            editingID = nil
+            editingSession = nil
         }
         do {
             var completed: [String] = []
@@ -749,25 +834,14 @@ struct RemindersWorkspaceView: View {
         }
     }
 
-    private func save(_ reminder: ReminderRecord, title: String, notes: String, listID: String, due: ReminderDue?) {
-        let updated = ReminderRecord(id: reminder.id, listID: listID, title: title, notes: notes.trimmed.isEmpty ? nil : notes, due: due)
-        guard updated != reminder else { return }
-        Task {
-            if await state.updateReminder(reminder, title: title, listID: listID, due: due, notes: notes) {
-                ReminderUndo.registerEdit(
-                    restoring: [reminder],
-                    redoing: [updated],
-                    name: String(localized: "Edit Reminder"),
-                    state: state,
-                    undoManager: undoManager
-                )
-            }
-        }
-    }
-
     private func reschedule(_ reminders: [ReminderRecord], to option: QuickDueOption) {
         guard !reminders.isEmpty else { return }
         Task {
+            if let session = editingSession, reminders.contains(where: { $0.id == session.original.id }) {
+                guard await state.saveEdit(session, undoManager: undoManager) else { return }
+                endEditing()
+            }
+            let reminders = reminders.compactMap { state.reminder(for: $0.id) }
             if await state.reschedule(reminders, to: option) {
                 let updated = reminders.compactMap { state.reminder(for: $0.id) }
                 ReminderUndo.registerEdit(
@@ -785,6 +859,11 @@ struct RemindersWorkspaceView: View {
         let moving = reminders.filter { $0.listID != listID }
         guard !moving.isEmpty else { return }
         Task {
+            if let session = editingSession, moving.contains(where: { $0.id == session.original.id }) {
+                guard await state.saveEdit(session, undoManager: undoManager) else { return }
+                endEditing()
+            }
+            let moving = moving.compactMap { state.reminder(for: $0.id) }
             if await state.move(moving, toList: listID) {
                 let updated = moving.map { reminder -> ReminderRecord in
                     var copy = reminder
@@ -808,6 +887,10 @@ struct RemindersWorkspaceView: View {
     }
 
     private func delete(_ reminders: [ReminderRecord]) {
+        if let session = editingSession, reminders.contains(where: { $0.id == session.original.id }) {
+            state.discardEdit(session)
+            editingSession = nil
+        }
         remindersPendingDeletion = []
         advanceSelection(past: reminders)
         Task {
@@ -1027,54 +1110,60 @@ private struct QuickTaskComposer: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "plus.circle.fill")
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
 
-            TextField("New reminder in \(contextTitle)", text: $title)
-                .textFieldStyle(.plain)
-                .focused($focused)
-                .onSubmit(submit)
-                .disabled(isSubmitting)
-                .accessibilityHint("Press Return to add the reminder")
+                TextField("New reminder in \(contextTitle)", text: $title)
+                    .textFieldStyle(.plain)
+                    .focused($focused)
+                    .onSubmit(submit)
+                    .disabled(isSubmitting)
+                    .accessibilityHint("Press Return to add the reminder")
 
-            if let due = selection.quickDue {
-                Label {
-                    Text(due.title)
-                } icon: {
-                    Image(systemName: "calendar")
+                Button(action: submit) {
+                    Image(systemName: isSubmitting ? "clock" : "arrow.up.circle.fill")
+                        .font(.title2)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.borderless)
+                .disabled(!canSubmit)
+                .accessibilityLabel("Add reminder")
             }
-
-            if lockedListID == nil {
-                Picker("List", selection: listSelection) {
-                    ForEach(state.snapshot.lists) { list in
+            if selection.quickDue != nil || lockedListID == nil {
+                HStack(spacing: 10) {
+                    if let due = selection.quickDue {
                         Label {
-                            Text(list.title)
+                            Text(due.title)
                         } icon: {
-                            ListColorDot.image(hex: list.colorHex)
+                            Image(systemName: "calendar")
                         }
-                        .tag(list.id)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                    if lockedListID == nil {
+                        Picker("List", selection: listSelection) {
+                            ForEach(state.snapshot.lists) { list in
+                                Label {
+                                    Text(list.title)
+                                } icon: {
+                                    ListColorDot.image(hex: list.colorHex)
+                                }
+                                .tag(list.id)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 180)
+                        .help("Choose List")
+                        .disabled(isSubmitting)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .fixedSize()
-                .help("Choose List")
-                .disabled(isSubmitting)
+                .padding(.leading, 28)
             }
-
-            Button(action: submit) {
-                Image(systemName: isSubmitting ? "clock" : "arrow.up.circle.fill")
-                    .font(.title2)
-            }
-            .buttonStyle(.borderless)
-            .disabled(!canSubmit)
-            .accessibilityLabel("Add reminder")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)

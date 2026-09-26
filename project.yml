@@ -92,6 +92,8 @@ targets:
       - TaskFerry/Services/SnapshotCache.swift
       - TaskFerry/Services/ReminderNotificationPlan.swift
       - TaskFerry/Services/ReminderUndo.swift
+      - TaskFerry/Services/ReminderEditSession.swift
+      - TaskFerry/Services/TaskFerryRuntime.swift
       - TaskFerry/Services/TaskFerryURL.swift
     settings:
       base:

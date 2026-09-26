@@ -101,8 +101,8 @@ private struct BridgeView: View {
                     .background(.tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 11))
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(BridgeStatusText.title(for: state.bridgeState)).font(.title2.weight(.semibold))
-                    Text(BridgeStatusText.detail(for: state.bridgeState)).font(.callout).foregroundStyle(.secondary)
+                    Text(state.isDemo ? String(localized: "Demo bridge") : BridgeStatusText.title(for: state.bridgeState)).font(.title2.weight(.semibold))
+                    Text(state.isDemo ? String(localized: "In-memory preview. No listener or connector is running.") : BridgeStatusText.detail(for: state.bridgeState)).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -119,7 +119,7 @@ private struct BridgeView: View {
                     statusRow(
                         symbol: "key",
                         title: "Bridge token",
-                        detail: Text(state.bridgeToken.isEmpty ? "Missing" : "Stored in Keychain"),
+                        detail: Text(state.isDemo ? "Demo token" : (state.bridgeToken.isEmpty ? "Missing" : "Stored in Keychain")),
                         ready: !state.bridgeToken.isEmpty
                     )
                     statusRow(
@@ -214,7 +214,7 @@ private struct BridgeView: View {
                 .accessibilityLabel(ready ? Text("Ready") : Text("Not ready"))
         }
         .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 

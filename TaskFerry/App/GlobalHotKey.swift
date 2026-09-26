@@ -14,6 +14,7 @@ final class GlobalHotKey {
     private var action: (() -> Void)?
 
     func register(action: @escaping () -> Void) {
+        guard !TaskFerryRuntime.isDemo else { return }
         self.action = action
         guard hotKeyRef == nil else { return }
         if handlerRef == nil {

@@ -1,189 +1,117 @@
 import SwiftUI
 
-/// Edits a reminder in place, the way Reminders and Things do. There's no Save button: changes
-/// are kept when you press Return, click another reminder, switch lists, or close the window.
-/// Esc discards them.
 struct InlineReminderEditor: View {
-    private enum Field: Hashable {
-        case title
-        case notes
-    }
-
+    private enum Field: Hashable { case title, notes }
     let state: AppState
-    let reminder: ReminderRecord
-    let onSave: (_ title: String, _ notes: String, _ listID: String, _ due: ReminderDue?) -> Void
+    @Bindable var session: ReminderEditSession
     let onComplete: () -> Void
     let onDelete: () -> Void
-    let onClose: () -> Void
-
-    @State private var title: String
-    @State private var notes: String
-    @State private var listID: String
-    @State private var hasDue: Bool
-    @State private var dueDate: Date
-    @State private var includesTime: Bool
-    @State private var isFinished = false
+    let onSave: () -> Void
+    let onCancel: () -> Void
     @FocusState private var focusedField: Field?
 
-    init(
-        state: AppState,
-        reminder: ReminderRecord,
-        onSave: @escaping (_ title: String, _ notes: String, _ listID: String, _ due: ReminderDue?) -> Void,
-        onComplete: @escaping () -> Void,
-        onDelete: @escaping () -> Void,
-        onClose: @escaping () -> Void
-    ) {
-        self.state = state
-        self.reminder = reminder
-        self.onSave = onSave
-        self.onComplete = onComplete
-        self.onDelete = onDelete
-        self.onClose = onClose
-
-        let initialDue = reminder.due
-        _title = State(initialValue: reminder.title)
-        _notes = State(initialValue: reminder.notes ?? "")
-        _listID = State(initialValue: reminder.listID)
-        _hasDue = State(initialValue: initialDue != nil)
-        _dueDate = State(initialValue: initialDue?.date() ?? Date())
-        _includesTime = State(initialValue: initialDue?.hasTime ?? false)
-    }
-
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Button {
-                // Keep what was typed, then complete, as clicking the circle does in Reminders.
-                commit()
-                onComplete()
-            } label: {
-                Circle()
-                    .strokeBorder(accentColor, lineWidth: 1.5)
-                    .frame(width: 18, height: 18)
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Button {
+                    onComplete()
+                } label: {
+                    Image(systemName: "circle")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .help("Mark as Completed")
+                .accessibilityLabel("Mark \(session.original.title) as completed")
+
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Title", text: $session.title, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .foregroundColor(Color(nsColor: .labelColor))
+                        .lineLimit(1...4)
+                        .focused($focusedField, equals: .title)
+                        .onSubmit(onSave)
+                        .accessibilityLabel("Reminder title")
+                    TextField("Notes", text: $session.notes, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .foregroundColor(Color(nsColor: .secondaryLabelColor))
+                        .font(.callout)
+                        .lineLimit(1...8)
+                        .focused($focusedField, equals: .notes)
+                        .accessibilityLabel("Notes")
+                }
             }
-            .buttonStyle(.plain)
-            .help("Mark as Completed")
-            .accessibilityLabel("Mark \(reminder.title) as completed")
-            .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
-
-            VStack(alignment: .leading, spacing: 8) {
-                TextField("Title", text: $title, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .lineLimit(1...4)
-                    .focused($focusedField, equals: .title)
-                    .onSubmit(commitAndClose)
-                    .accessibilityLabel("Reminder title")
-
-                TextField("Notes", text: $notes, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1...8)
-                    .focused($focusedField, equals: .notes)
-                    .accessibilityLabel("Notes")
-
-                metadataControls
+            metadataControls
+            if let error = session.error {
+                Text(error).font(.callout).foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button("Retry", action: onSave)
+                    Button("Discard Changes", role: .destructive, action: onCancel)
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            if session.phase == .saving { ProgressView("Saving…").controlSize(.small) }
+            HStack {
+                Spacer()
+                Button("Cancel", action: onCancel)
+                Button("Done", action: onSave)
+                    .keyboardShortcut(.return, modifiers: .command)
+            }
+            .controlSize(.small)
         }
-        .padding(.vertical, 6)
+        // List selection changes `.primary` to white; our editor has its own neutral surface.
+        .foregroundStyle(Color(nsColor: .labelColor))
+        .padding(12)
+        .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+        .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor.opacity(0.5)) }
+        .padding(.vertical, 4)
+        .disabled(session.phase == .saving)
         .onAppear { focusedField = .title }
-        .onDisappear(perform: commit)
-        .onExitCommand(perform: revertAndClose)
-        .onKeyPress(.return, phases: .down) { press in
-            guard press.modifiers.contains(.command) else { return .ignored }
-            commitAndClose()
-            return .handled
-        }
+        .onExitCommand(perform: onCancel)
     }
 
     private var metadataControls: some View {
-        HStack(spacing: 12) {
-            Picker("List", selection: $listID) {
-                ForEach(state.snapshot.lists) { list in
-                    Label {
-                        Text(list.title)
-                    } icon: {
-                        ListColorDot.image(hex: list.colorHex)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Picker("List", selection: $session.listID) {
+                    ForEach(state.snapshot.lists) { list in
+                        Text(list.title).tag(list.id)
                     }
-                    .tag(list.id)
                 }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 260)
+                Spacer(minLength: 8)
+                Button("Delete…", role: .destructive, action: onDelete)
+                    .buttonStyle(.borderless)
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .fixedSize()
-
-            Toggle("Date", isOn: $hasDue)
-                .toggleStyle(.checkbox)
-                .fixedSize()
-
-            if hasDue {
-                DatePicker("Date", selection: $dueDate, displayedComponents: .date)
-                    .labelsHidden()
-                    .fixedSize()
-
-                Toggle("Time", isOn: $includesTime)
-                    .toggleStyle(.checkbox)
-                    .fixedSize()
-
-                if includesTime {
-                    DatePicker("Time", selection: $dueDate, displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .fixedSize()
-                }
-            }
-
-            Spacer()
-
-            // Only asks for confirmation. If the user cancels, editing and autosave carry on.
-            Button("Delete…", role: .destructive, action: onDelete)
-            .buttonStyle(.borderless)
-            .foregroundStyle(.red)
+            dateControls
+            timeControls
         }
         .font(.callout)
         .controlSize(.small)
     }
 
-    private var accentColor: Color {
-        Color(hex: state.list(for: listID)?.colorHex ?? TaskFerryPalette.defaultListHex)
+    private var dateControls: some View {
+        HStack {
+            Toggle("Date", isOn: $session.hasDue).toggleStyle(.checkbox)
+            if session.hasDue {
+                DatePicker("Due date", selection: $session.dueDate, displayedComponents: .date)
+                    .labelsHidden()
+            }
+        }.fixedSize()
     }
 
-    /// The edited due date. When the date controls weren't touched, the original value is returned
-    /// exactly, so an edit to the title never rewrites a reminder's time zone or floating time.
-    private var editedDue: ReminderDue? {
-        let initial = reminder.due
-        let untouched = hasDue == (initial != nil)
-            && includesTime == (initial?.hasTime ?? false)
-            && (initial == nil || dueDate == initial?.date())
-        if untouched { return initial }
-        return hasDue ? ReminderDue(date: dueDate, includesTime: includesTime) : nil
-    }
-
-    private func commit() {
-        guard !isFinished else { return }
-        isFinished = true
-        // Deleted or completed elsewhere while open: there's nothing left to save to.
-        guard state.reminder(for: reminder.id) != nil else { return }
-        let cleanTitle = title.trimmed
-        guard !cleanTitle.isEmpty, !listID.isEmpty else { return }
-        let due = editedDue
-        let changed = cleanTitle != reminder.title
-            || notes != (reminder.notes ?? "")
-            || listID != reminder.listID
-            || due != reminder.due
-        if changed {
-            onSave(cleanTitle, notes, listID, due)
+    @ViewBuilder private var timeControls: some View {
+        if session.hasDue {
+            HStack {
+                Toggle("Time", isOn: $session.includesTime).toggleStyle(.checkbox)
+                if session.includesTime {
+                    DatePicker("Due time", selection: $session.dueDate, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                }
+            }.fixedSize()
         }
     }
 
-    private func commitAndClose() {
-        commit()
-        onClose()
-    }
-
-    private func revertAndClose() {
-        isFinished = true
-        onClose()
-    }
 }

@@ -116,6 +116,7 @@ final class AppState {
     var showsDockBadge: Bool
     var dockBadgeScope: DockBadgeScope
     var navigationRequest: NavigationRequest?
+    var unsavedEdits: [UUID: ReminderEditSession] = [:]
 
     /// Called whenever the Dock badge count may have changed. The app layer owns the Dock tile.
     @ObservationIgnored var onDockBadgeChange: ((Int) -> Void)?
@@ -131,9 +132,11 @@ final class AppState {
     @ObservationIgnored private var automaticRefreshTask: Task<Void, Never>?
     @ObservationIgnored private var storeChangeTask: Task<Void, Never>?
     @ObservationIgnored private var startGeneration = 0
-    @ObservationIgnored private let isDemo: Bool
+    @ObservationIgnored let isDemo: Bool
+    @ObservationIgnored let demoScenario: DemoScenario
+    @ObservationIgnored private var demoService: DemoReminderService?
     @ObservationIgnored private let automaticRefreshInterval: Duration
-    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored let defaults: UserDefaults
     @ObservationIgnored private let credentialStore: any CredentialStore
     @ObservationIgnored private let serviceFactory: ReminderServiceFactory
     @ObservationIgnored private let cloudflareConnector: CloudflareTunnelConnector
@@ -177,6 +180,10 @@ final class AppState {
     var tunnelToken: String { cachedCredentials.tunnelToken }
 
     var cloudflareProvisioning: CloudflareProvisioning? {
+        if isDemo, demoScenario == .provisionedBridge {
+            return CloudflareProvisioning(accountID: "demo", zoneID: "demo", tunnelID: "demo",
+                accessApplicationID: "demo", serviceTokenID: "demo", dnsRecordID: "demo", hostname: "reminders.example.com")
+        }
         guard let data = defaults.data(forKey: AppPreferences.cloudflareProvisioning) else { return nil }
         return try? JSONDecoder().decode(CloudflareProvisioning.self, from: data)
     }
@@ -197,7 +204,8 @@ final class AppState {
 
     init(
         isDemo: Bool? = nil,
-        defaults: UserDefaults = .standard,
+        defaults: UserDefaults? = nil,
+        demoScenario: DemoScenario? = nil,
         credentialStore: any CredentialStore = KeychainStore(),
         serviceFactory: ReminderServiceFactory? = nil,
         cloudflareConnector: CloudflareTunnelConnector? = nil,
@@ -206,13 +214,17 @@ final class AppState {
     ) {
         let demoMode = isDemo ?? (ProcessInfo.processInfo.environment["TASK_FERRY_DEMO"] == "1")
         self.isDemo = demoMode
+        self.demoScenario = demoScenario ?? (demoMode ? .current : .standard)
+        let defaults = demoMode
+            ? (TaskFerryRuntime.isDemo ? TaskFerryRuntime.preferences : TaskFerryRuntime.makeDemoPreferences())
+            : (defaults ?? .standard)
         self.defaults = defaults
         self.credentialStore = credentialStore
         // Resolve actor-isolated defaults here. Swift 6.1 can mis-lower later default arguments
         // when an earlier parameter's default needs main-actor isolation.
         self.serviceFactory = serviceFactory ?? .live
         self.cloudflareConnector = cloudflareConnector ?? CloudflareTunnelConnector()
-        self.snapshotCache = snapshotCache ?? (demoMode ? .disabled : .live)
+        self.snapshotCache = demoMode ? .disabled : (snapshotCache ?? .live)
         self.automaticRefreshInterval = automaticRefreshInterval
         currentDay = Calendar.autoupdatingCurrent.startOfDay(for: Date())
         runsInBackground = demoMode ? false : defaults.bool(forKey: AppPreferences.runsInBackground)
@@ -222,20 +234,10 @@ final class AppState {
         dockBadgeScope = defaults.string(forKey: AppPreferences.dockBadgeScope)
             .flatMap(DockBadgeScope.init(rawValue:)) ?? .todayAndOverdue
         if demoMode {
-            cachedCredentials = StoredCredentials(
-                accessClientID: "",
-                accessClientSecret: "",
-                bridgeToken: "DEMO-DEMO-DEMO-DEMO-DEMO-DEMO",
-                tunnelToken: ""
-            )
-            credentialsLoaded = true
-            mode = ProcessInfo.processInfo.environment["TASK_FERRY_DEMO_ROLE"] == "bridge" ? .bridge : .remote
-            operations.replaceService(DemoReminderService())
-            isStarted = true
-            connectionState = .connected
-            if mode == .bridge {
-                bridgeState = .running(8788)
-            }
+            if self.demoScenario == .unconfigured { demoEndpoint = "" }
+            mode = self.demoScenario == .unconfigured ? nil
+                : (ProcessInfo.processInfo.environment["TASK_FERRY_DEMO_ROLE"] == "bridge" || self.demoScenario == .provisionedBridge ? .bridge : .remote)
+            if let mode { configureDemoService(for: mode) }
         } else if let value = defaults.string(forKey: AppPreferences.mode),
                   let savedMode = AppMode(rawValue: value) {
             mode = savedMode
@@ -388,6 +390,8 @@ final class AppState {
     /// bridge role again picks up where it left off without breaking its paired Mac.
     func resetMode() {
         let previousMode = mode
+        for draft in unsavedEdits.values { draft.discard() }
+        unsavedEdits.removeAll()
         startGeneration += 1
         startTask?.cancel()
         startTask = nil
@@ -536,6 +540,17 @@ final class AppState {
     private func performRefresh(interactive: Bool) async -> Bool {
         lastRefreshStartedAt = Date()
         await start()
+        if isDemo, mode == .remote, demoScenario == .unconfigured, endpoint.isEmpty { return false }
+        if isDemo, demoScenario == .loading {
+            connectionState = .loading
+            return false
+        }
+        if isDemo, demoScenario == .offline {
+            consecutiveSyncFailures = 1
+            connectionState = .failed
+            errorMessage = String(localized: "Demo: the bridge is offline. Your last-synced reminders are shown.")
+            return false
+        }
         if interactive && !hasLoadedSnapshot || snapshot == .empty && !isShowingCachedSnapshot {
             connectionState = .loading
         }
@@ -619,7 +634,15 @@ final class AppState {
 
     @discardableResult
     func createList(title: String, colorHex: String? = nil) async -> MutationOutcome {
-        await perform(RPCRequest(operation: .upsertList, title: title, colorHex: colorHex))
+        let knownIDs = Set(snapshot.lists.map(\.id))
+        var outcome = await perform(RPCRequest(operation: .upsertList, title: title, colorHex: colorHex))
+        if outcome.succeeded, outcome.createdID == nil {
+            // Protocol-1 bridges return the updated snapshot without a created identifier.
+            let candidates = snapshot.lists.filter { !knownIDs.contains($0.id) && $0.title == title.trimmed }
+            // Don't navigate to an arbitrary list if another client created the same title.
+            if candidates.count == 1 { outcome.createdID = candidates[0].id }
+        }
+        return outcome
     }
 
     @discardableResult
@@ -778,6 +801,7 @@ final class AppState {
     }
 
     func saveCloudflareProvisioning(_ result: CloudflareProvisioningResult) async throws {
+        guard !isDemo else { throw ReminderServiceError.message("Cloudflare provisioning is disabled in demo mode.") }
         guard mode == .bridge else {
             throw ReminderServiceError.message("Cloudflare setup must be completed on the reminders bridge Mac.")
         }
@@ -799,6 +823,7 @@ final class AppState {
     }
 
     func removeStoredCloudflareProvisioning() async throws {
+        guard !isDemo else { throw ReminderServiceError.message("Cloudflare provisioning is disabled in demo mode.") }
         let store = credentialStore
         try await Task.detached(priority: .userInitiated) {
             try store.setAtomically([
@@ -844,7 +869,7 @@ final class AppState {
     }
 
     func startCloudflareConnector() {
-        guard mode == .bridge, !tunnelToken.isEmpty else { return }
+        guard !isDemo, mode == .bridge, !tunnelToken.isEmpty else { return }
         cloudflareConnector.start(token: tunnelToken)
     }
 
@@ -889,7 +914,26 @@ final class AppState {
         Task { await cache.save(entry) }
     }
 
+    private func configureDemoService(for mode: AppMode) {
+        let service = demoService ?? DemoReminderService(scenario: demoScenario)
+        demoService = service
+        operations.replaceService(service)
+        cachedCredentials = StoredCredentials(accessClientID: "DEMO-CLIENT", accessClientSecret: "DEMO-SECRET",
+            bridgeToken: "DEMO-BRIDGE-TOKEN", tunnelToken: "")
+        credentialsLoaded = true
+        isStarted = true
+        connectionState = .connected
+        bridgeState = mode == .bridge ? .running(8788) : .stopped
+        if demoScenario == .offline {
+            snapshot = service.initialSnapshot
+            isShowingCachedSnapshot = true
+            lastSuccessfulSync = Date().addingTimeInterval(-3600)
+        }
+        if demoScenario == .provisionedBridge { cloudflareConnectorState = .connected }
+    }
+
     private func prepareService(for mode: AppMode, generation: Int) async {
+        if isDemo { configureDemoService(for: mode); return }
         do {
             _ = try await loadStoredCredentials()
         } catch {
@@ -924,6 +968,7 @@ final class AppState {
     }
 
     private func generateAndStoreBridgeToken() async throws -> String {
+        if isDemo { return "DEMO-BRIDGE-TOKEN" }
         let store = credentialStore
         let token = try await Task.detached(priority: .userInitiated) {
             let token = try store.randomToken()
@@ -936,6 +981,7 @@ final class AppState {
     }
 
     private func configureService(for mode: AppMode) {
+        if isDemo { configureDemoService(for: mode); return }
         stopAutomaticRefresh()
         // A sync still running against the previous service can only end as superseded. Don't let
         // new refreshes join it, and don't carry its failures over to the new connection.

@@ -9,6 +9,7 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
     static let shared = QuickEntryPanelController()
 
     private var panel: QuickEntryPanel?
+    private weak var originatingWindow: NSWindow?
 
     func toggle(state: AppState) {
         if panel?.isVisible == true {
@@ -23,16 +24,25 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
         title: String = "",
         notes: String? = nil,
         listID: String? = nil,
-        due: QuickDueOption = .today
+        due: QuickDueOption = .today,
+        restoresWorkspaceFocus: Bool? = nil
     ) {
         guard state.mode == .remote else {
             WindowRouter.shared.showMainWindow()
             return
         }
-        close()
+        close(restoreFocus: false)
+        let invokedFromWorkspace = restoresWorkspaceFocus ?? NSApp.isActive
+        if invokedFromWorkspace {
+            originatingWindow = NSApp.keyWindow ?? NSApp.mainWindow
+        }
+        // A nonactivating panel borrows keyboard focus from another process. Avoid that
+        // machinery for our own File/Dock command, where ordinary window focus is correct.
+        var style: NSWindow.StyleMask = [.titled, .closable, .fullSizeContentView]
+        if !invokedFromWorkspace { style.insert(.nonactivatingPanel) }
         let panel = QuickEntryPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 240),
-            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
+            styleMask: style,
             backing: .buffered,
             defer: false
         )
@@ -62,16 +72,23 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
         self.panel = panel
     }
 
-    func close() {
+    func close(restoreFocus: Bool = true) {
         guard let panel else { return }
         self.panel = nil
         panel.delegate = nil
-        panel.orderOut(nil)
+        let previous = originatingWindow
+        originatingWindow = nil
+        panel.close()
         panel.contentView = nil
+        if restoreFocus, let previous, previous.isVisible {
+            NSApp.activate()
+            previous.makeMain()
+            previous.makeKeyAndOrderFront(nil)
+        }
     }
 
     func windowDidResignKey(_ notification: Notification) {
-        close()
+        close(restoreFocus: false)
     }
 
     func windowWillClose(_ notification: Notification) {

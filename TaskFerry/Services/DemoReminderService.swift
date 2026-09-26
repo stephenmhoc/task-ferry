@@ -3,10 +3,14 @@ import Foundation
 @MainActor
 final class DemoReminderService: ReminderService {
     private var value: ReminderSnapshot
+    private let scenario: DemoScenario
+    private var failedMutation = false
+    var initialSnapshot: ReminderSnapshot { value }
     /// Completed reminders stay here, as they do in EventKit, so completion can be undone.
     private var completed: [ReminderRecord] = []
 
-    init(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) {
+    init(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent, scenario: DemoScenario = .standard) {
+        self.scenario = scenario
         let today = ReminderDue(date: now, includesTime: false, calendar: calendar)
         let tomorrowDate = calendar.date(byAdding: .day, value: 1, to: now) ?? now
         let tomorrow = ReminderDue(date: tomorrowDate, includesTime: false, calendar: calendar)
@@ -31,9 +35,23 @@ final class DemoReminderService: ReminderService {
             ],
             defaultListID: "personal"
         )
+        if scenario == .empty { value.reminders = [] }
+        if scenario == .longContent {
+            value.lists[0].title = "Personal projects and plans for the coming year"
+            value.reminders[0].title = "Review the complete quarterly planning document with engineering and design, then send the revised schedule before the planning meeting"
+            value.reminders[0].notes = String(repeating: "Detailed planning notes for review.\n", count: 8)
+            value.reminders += (5...45).map { ReminderRecord(id: String($0), listID: "work", title: "Planning task \($0)", due: today) }
+        }
     }
 
     func execute(_ request: RPCRequest) async throws -> RPCResult {
+        if scenario == .offline {
+            throw ReminderServiceError.message("Demo: the bridge is offline. Try again when it is connected.")
+        }
+        if scenario == .mutationFailure, request.operation != .snapshot, !failedMutation {
+            failedMutation = true
+            throw ReminderServiceError.message("Demo: the first change failed. Retry to save it.")
+        }
         var createdID: String?
         switch request.operation {
         case .snapshot:
