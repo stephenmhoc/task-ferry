@@ -901,58 +901,6 @@ private extension ReminderSidebarSelection {
     }
 }
 
-// MARK: - Undo
-
-@MainActor
-enum ReminderUndo {
-    /// Registers undo (and, from there, redo) for completing or uncompleting reminders.
-    static func registerCompletion(_ ids: [String], completed: Bool, state: AppState, undoManager: UndoManager?) {
-        guard let undoManager, !ids.isEmpty else { return }
-        undoManager.registerUndo(withTarget: state) { state in
-            MainActor.assumeIsolated {
-                registerCompletion(ids, completed: !completed, state: state, undoManager: undoManager)
-                Task {
-                    for id in ids {
-                        await state.setCompleted(reminderID: id, !completed)
-                    }
-                }
-            }
-        }
-        undoManager.setActionName(completed
-            ? String(localized: "Mark as Completed")
-            : String(localized: "Mark as Incomplete"))
-    }
-
-    /// Registers undo for an edit by restoring each reminder's earlier title, notes, list, and due date.
-    static func registerEdit(
-        restoring previous: [ReminderRecord],
-        redoing next: [ReminderRecord],
-        name: String,
-        state: AppState,
-        undoManager: UndoManager?
-    ) {
-        guard let undoManager, !previous.isEmpty else { return }
-        undoManager.registerUndo(withTarget: state) { state in
-            MainActor.assumeIsolated {
-                registerEdit(restoring: next, redoing: previous, name: name, state: state, undoManager: undoManager)
-                Task {
-                    for record in previous {
-                        let current = state.reminder(for: record.id) ?? record
-                        await state.updateReminder(
-                            current,
-                            title: record.title,
-                            listID: record.listID,
-                            due: record.due,
-                            notes: record.notes ?? ""
-                        )
-                    }
-                }
-            }
-        }
-        undoManager.setActionName(name)
-    }
-}
-
 // MARK: - Row
 
 private struct ReminderRow: View {

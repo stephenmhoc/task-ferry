@@ -199,8 +199,8 @@ final class AppState {
         isDemo: Bool? = nil,
         defaults: UserDefaults = .standard,
         credentialStore: any CredentialStore = KeychainStore(),
-        serviceFactory: ReminderServiceFactory = .live,
-        cloudflareConnector: CloudflareTunnelConnector = CloudflareTunnelConnector(),
+        serviceFactory: ReminderServiceFactory? = nil,
+        cloudflareConnector: CloudflareTunnelConnector? = nil,
         snapshotCache: SnapshotCache? = nil,
         automaticRefreshInterval: Duration = .seconds(15)
     ) {
@@ -208,8 +208,10 @@ final class AppState {
         self.isDemo = demoMode
         self.defaults = defaults
         self.credentialStore = credentialStore
-        self.serviceFactory = serviceFactory
-        self.cloudflareConnector = cloudflareConnector
+        // Resolve actor-isolated defaults here. Swift 6.1 can mis-lower later default arguments
+        // when an earlier parameter's default needs main-actor isolation.
+        self.serviceFactory = serviceFactory ?? .live
+        self.cloudflareConnector = cloudflareConnector ?? CloudflareTunnelConnector()
         self.snapshotCache = snapshotCache ?? (demoMode ? .disabled : .live)
         self.automaticRefreshInterval = automaticRefreshInterval
         currentDay = Calendar.autoupdatingCurrent.startOfDay(for: Date())
@@ -241,7 +243,7 @@ final class AppState {
                 restoreCachedSnapshot()
             }
         }
-        cloudflareConnector.onStateChange = { [weak self] connectorState in
+        self.cloudflareConnector.onStateChange = { [weak self] connectorState in
             self?.cloudflareConnectorState = connectorState
         }
     }
