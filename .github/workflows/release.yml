@@ -19,7 +19,7 @@ concurrency:
 jobs:
   release:
     env:
-      RELEASE_NOTES: "Clearer list section headers with color accents and task counts, plus a more compact resizable workspace."
+      RELEASE_NOTES: "Faster launch with cached reminders, native Mac selection and keyboard shortcuts, inline editing with undo, drag and drop, and floating Quick Entry. Adds due-date notifications, Services, Shortcuts, and URL support. Improves editing recovery, Quick Entry focus, sync reliability, and bridge integration coverage."
     runs-on: macos-15
     timeout-minutes: 45
     steps:
