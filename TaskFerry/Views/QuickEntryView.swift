@@ -44,7 +44,7 @@ struct QuickEntryView: View {
                     .onSubmit(addReminder)
                     .disabled(isSubmitting)
 
-                Picker("List", selection: $listID) {
+                Picker("List", selection: listSelection) {
                     ForEach(state.snapshot.lists) { list in
                         Label {
                             Text(list.title)
@@ -118,6 +118,9 @@ struct QuickEntryView: View {
             selectDefaultListIfNeeded()
         }
         .onChange(of: state.snapshot.lists) { _, _ in selectDefaultListIfNeeded() }
+        .onChange(of: state.preferredNewReminderListID) { _, _ in
+            if initialListID == nil { listID = state.newReminderListID ?? "" }
+        }
     }
 
     private func addReminder() {
@@ -158,6 +161,16 @@ struct QuickEntryView: View {
 
     private func selectDefaultListIfNeeded() {
         guard !state.snapshot.lists.contains(where: { $0.id == listID }) else { return }
-        listID = state.defaultListID ?? ""
+        listID = state.newReminderListID ?? ""
+    }
+
+    private var listSelection: Binding<String> {
+        Binding(
+            get: { listID },
+            set: {
+                listID = $0
+                state.rememberNewReminderList($0)
+            }
+        )
     }
 }

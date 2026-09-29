@@ -19,7 +19,7 @@ concurrency:
 jobs:
   release:
     env:
-      RELEASE_NOTES: "Faster launch with cached reminders, native Mac selection and keyboard shortcuts, inline editing with undo, drag and drop, and floating Quick Entry. Adds due-date notifications, Services, Shortcuts, and URL support. Improves editing recovery, Quick Entry focus, sync reliability, and bridge integration coverage."
+      RELEASE_NOTES: "Smoother sidebar navigation and a separate, right-aligned search field. Refines inline editing with compact notes and consistent list, date, and time controls. Remembers the selected list for new reminders across launches."
     runs-on: macos-15
     timeout-minutes: 45
     steps:

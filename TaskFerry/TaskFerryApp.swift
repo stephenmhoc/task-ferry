@@ -68,6 +68,8 @@ struct TaskFerryApp: App {
 struct WorkspaceActions {
     var newReminder: () -> Void
     var newList: () -> Void
+    var sidebarHidden: Bool
+    var toggleSidebar: () -> Void
     var find: () -> Void
     var refresh: () -> Void
     var show: (NavigationRequest.Destination) -> Void
@@ -102,7 +104,13 @@ private struct TaskFerryCommands: Commands {
     var body: some Commands {
         let _ = WindowRouter.shared.install(openWindow)
 
-        SidebarCommands()
+        CommandGroup(replacing: .sidebar) {
+            Button(actions?.sidebarHidden == true ? "Show Sidebar" : "Hide Sidebar") {
+                actions?.toggleSidebar()
+            }
+            .keyboardShortcut("s", modifiers: [.control, .command])
+            .disabled(actions == nil)
+        }
         ToolbarCommands()
 
         CommandGroup(after: .appInfo) {
