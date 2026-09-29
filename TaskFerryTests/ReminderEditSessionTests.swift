@@ -21,6 +21,24 @@ final class ReminderEditSessionTests: XCTestCase {
         XCTAssertEqual(session.phase, .saved)
     }
 
+    func testNotesAndDateEditsCommitTogetherAndKeepDateOnlySemantics() async {
+        let session = ReminderEditSession(reminder())
+        session.notes = "New detail\nSecond line"
+        session.dueDate = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 2))!
+        var saved: ReminderRecord?
+        let savedSuccessfully = await session.commit { saved = $0; return nil }
+        XCTAssertTrue(savedSuccessfully)
+        XCTAssertEqual(saved?.notes, "New detail\nSecond line")
+        XCTAssertEqual(saved?.due, ReminderDue(year: 2026, month: 10, day: 2))
+
+        let clearing = ReminderEditSession(saved!)
+        clearing.notes = ""
+        var cleared: ReminderRecord?
+        let clearedSuccessfully = await clearing.commit { cleared = $0; return nil }
+        XCTAssertTrue(clearedSuccessfully)
+        XCTAssertNil(cleared?.notes)
+    }
+
     func testDiscardNeverSavesAndNewSessionStartsFromAuthoritativeRecord() async {
         let original = reminder()
         for _ in 0..<10 {

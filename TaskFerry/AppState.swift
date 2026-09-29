@@ -17,6 +17,7 @@ enum AppPreferences {
     static let quickEntryHotKeyEnabled = "quick-entry-hot-key-enabled"
     static let notifiesWhenDue = "notifies-when-due"
     static let dateOnlyNotificationHour = "date-only-notification-hour"
+    static let newReminderListID = "new-reminder-list-id"
 }
 
 /// A request from outside the main window (Dock menu, notification, URL, intent) to show something.
@@ -117,6 +118,7 @@ final class AppState {
     var dockBadgeScope: DockBadgeScope
     var navigationRequest: NavigationRequest?
     var unsavedEdits: [UUID: ReminderEditSession] = [:]
+    private(set) var preferredNewReminderListID: String?
 
     /// Called whenever the Dock badge count may have changed. The app layer owns the Dock tile.
     @ObservationIgnored var onDockBadgeChange: ((Int) -> Void)?
@@ -219,6 +221,7 @@ final class AppState {
             ? (TaskFerryRuntime.isDemo ? TaskFerryRuntime.preferences : TaskFerryRuntime.makeDemoPreferences())
             : (defaults ?? .standard)
         self.defaults = defaults
+        preferredNewReminderListID = defaults.string(forKey: AppPreferences.newReminderListID)
         self.credentialStore = credentialStore
         // Resolve actor-isolated defaults here. Swift 6.1 can mis-lower later default arguments
         // when an earlier parameter's default needs main-actor isolation.
@@ -277,6 +280,21 @@ final class AppState {
             return id
         }
         return snapshot.lists.first?.id
+    }
+
+    /// The most recently chosen list in a new-reminder picker, when it still exists.
+    var newReminderListID: String? {
+        if let id = preferredNewReminderListID,
+           snapshot.lists.contains(where: { $0.id == id }) {
+            return id
+        }
+        return defaultListID
+    }
+
+    func rememberNewReminderList(_ id: String) {
+        guard snapshot.lists.contains(where: { $0.id == id }) else { return }
+        preferredNewReminderListID = id
+        defaults.set(id, forKey: AppPreferences.newReminderListID)
     }
 
     func reminders(in listID: String) -> [ReminderRecord] {

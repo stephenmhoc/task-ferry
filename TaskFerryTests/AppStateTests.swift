@@ -3,6 +3,32 @@ import XCTest
 
 @MainActor
 final class AppStateTests: XCTestCase {
+    func testNewReminderListChoiceSurvivesRestartAndFallsBackWhenListDisappears() {
+        let suiteName = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let lists = [
+            ReminderListRecord(id: "personal", title: "Personal", colorHex: "000000"),
+            ReminderListRecord(id: "work", title: "Work", colorHex: "000000")
+        ]
+
+        let firstLaunch = AppState(isDemo: false, defaults: defaults, snapshotCache: .disabled)
+        firstLaunch.snapshot = ReminderSnapshot(lists: lists, reminders: [], defaultListID: "personal")
+        XCTAssertEqual(firstLaunch.newReminderListID, "personal")
+        firstLaunch.rememberNewReminderList("work")
+        XCTAssertEqual(firstLaunch.newReminderListID, "work")
+        XCTAssertEqual(defaults.string(forKey: AppPreferences.newReminderListID), "work")
+
+        let nextLaunch = AppState(isDemo: false, defaults: defaults, snapshotCache: .disabled)
+        XCTAssertNil(nextLaunch.newReminderListID, "The stored choice must wait for lists to load")
+        nextLaunch.snapshot = ReminderSnapshot(lists: lists, reminders: [], defaultListID: "personal")
+        XCTAssertEqual(nextLaunch.newReminderListID, "work")
+        nextLaunch.snapshot.lists.removeAll { $0.id == "work" }
+        XCTAssertEqual(nextLaunch.newReminderListID, "personal")
+        nextLaunch.rememberNewReminderList("missing")
+        XCTAssertEqual(defaults.string(forKey: AppPreferences.newReminderListID), "work")
+    }
+
     func testConnectionCodeStoresTheCompleteRemoteConfiguration() async throws {
         let suiteName = "TaskFerryTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

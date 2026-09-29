@@ -108,14 +108,17 @@ private struct ReminderSection: Identifiable {
 
 struct RemindersWorkspaceView: View {
     @Bindable var state: AppState
+    private let sidebarWidth: CGFloat = 240
 
     @SceneStorage("TaskFerry.sidebar-selection") private var storedSelection = "today"
     @SceneStorage("TaskFerry.sidebar-hidden") private var sidebarHidden = false
     @State private var selection = Set<String>()
     @State private var editingSession: ReminderEditSession?
+    @State private var editorPopover: ReminderEditorPopover?
+    @State private var consumedPopoverEscapeTimestamp: TimeInterval?
     private var editingID: String? { editingSession?.original.id }
     @State private var searchText = ""
-    @State private var isSearchPresented = false
+    @State private var searchFocusRequest = 0
     @State private var composerFocusRequest = 0
     @State private var listEditor: ListEditorContext?
     @State private var focusComposerAfterSheet = false
@@ -126,6 +129,11 @@ struct RemindersWorkspaceView: View {
     @Environment(\.undoManager) private var undoManager
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var sidebarSurface: Color {
+        Color(nsColor: NSColor(white: colorScheme == .dark ? 0.16 : 0.95, alpha: 1))
+    }
 
     /// Keep the logical selection for commands, but let the editor own its neutral appearance.
     /// AppKit otherwise forces selected-row text fields to white even on a custom background.
@@ -140,12 +148,48 @@ struct RemindersWorkspaceView: View {
     }
 
     var body: some View {
-        NavigationSplitView(columnVisibility: columnVisibility) {
+        HStack(spacing: 0) {
             sidebar
-        } detail: {
+                .frame(width: sidebarWidth)
+                .offset(x: sidebarHidden ? -sidebarWidth : 0)
+                .frame(width: sidebarHidden ? 0 : sidebarWidth, alignment: .leading)
+                .clipped()
+                .allowsHitTesting(!sidebarHidden)
+                .accessibilityHidden(sidebarHidden)
+                .overlay(alignment: .trailing) {
+                    Color(nsColor: .separatorColor)
+                        .frame(width: 1)
+                        .opacity(sidebarHidden ? 0 : 0.5)
+                }
             detail
+                .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
         }
-        .navigationSplitViewStyle(.balanced)
+        .background(alignment: .leading) {
+            sidebarSurface
+                .frame(width: sidebarHidden ? 0 : sidebarWidth)
+                .ignoresSafeArea(.container, edges: .top)
+        }
+        .toolbarBackground(.hidden, for: .windowToolbar)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.24), value: sidebarHidden)
+        .navigationTitle(displayTitle)
+        .toolbar {
+            #if compiler(>=6.2)
+            if #available(macOS 26.0, *) {
+                ToolbarItem(id: "sidebar", placement: .navigation) {
+                    sidebarToolbarControl
+                }
+                .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(id: "sidebar", placement: .navigation) {
+                    sidebarToolbarControl
+                }
+            }
+            #else
+            ToolbarItem(id: "sidebar", placement: .navigation) {
+                sidebarToolbarControl
+            }
+            #endif
+        }
         .focusedSceneValue(\.workspaceActions, workspaceActions)
         .onDisappear { persistCurrentEditor() }
         .onChange(of: storedSelection) { _, _ in
@@ -224,7 +268,7 @@ struct RemindersWorkspaceView: View {
                 smartRow(.all, count: state.allReminders.count)
             }
 
-            Section("Lists") {
+            Section("My Lists") {
                 ForEach(state.snapshot.lists) { list in
                     Label {
                         HStack {
@@ -233,9 +277,13 @@ struct RemindersWorkspaceView: View {
                             sidebarCount(state.reminders(in: list.id).count)
                         }
                     } icon: {
-                        Image(systemName: "list.bullet.circle.fill")
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(Color(hex: list.colorHex))
+                        ZStack {
+                            Circle().fill(Color(hex: list.colorHex))
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        .frame(width: 20, height: 20)
                     }
                     .tag(ReminderSidebarSelection.list(list.id))
                     .onDrop(of: [.taskFerryReminders, .plainText], isTargeted: nil) { providers in
@@ -250,6 +298,8 @@ struct RemindersWorkspaceView: View {
             }
         }
         .listStyle(.sidebar)
+        .scrollContentBackground(.hidden)
+        .background(sidebarSurface)
         .onDeleteCommand {
             if case .list(let id) = currentSelection, let list = state.list(for: id) {
                 listPendingDeletion = list
@@ -267,7 +317,6 @@ struct RemindersWorkspaceView: View {
             .padding(.vertical, 10)
             .help("Create a new list in Apple Reminders (⇧⌘N)")
         }
-        .navigationSplitViewColumnWidth(min: 180, ideal: 215, max: 300)
     }
 
     private func smartRow(_ destination: ReminderSidebarSelection, count: Int) -> some View {
@@ -280,7 +329,8 @@ struct RemindersWorkspaceView: View {
         } icon: {
             Image(systemName: destination.symbol)
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(destination.color(listColorHex: nil))
+                .foregroundStyle(currentSelection == destination && controlActiveState == .key
+                    ? .white : destination.color(listColorHex: nil))
         }
         .tag(destination)
         .onDrop(of: [.taskFerryReminders, .plainText], isTargeted: nil) { providers in
@@ -374,30 +424,45 @@ struct RemindersWorkspaceView: View {
         }
         .background(Color(nsColor: .textBackgroundColor))
         .navigationTitle(displayTitle)
-        .navigationSplitViewColumnWidth(min: 360, ideal: 680)
-        .searchable(text: $searchText, isPresented: $isSearchPresented, placement: .toolbar, prompt: Text("Search"))
         .toolbar(id: "workspace") {
-            ToolbarItem(id: "new-reminder", placement: .primaryAction) {
+            ToolbarItem(id: "refresh", placement: .primaryAction, showsByDefault: false) {
+                Button(action: refresh) {
+                    Label("Refresh", systemImage: "arrow.clockwise")
+                }
+                .help("Refresh (⌘R)")
+            }
+            #if compiler(>=6.2)
+            if #available(macOS 26.0, *) {
+                ToolbarSpacer(.flexible)
+            } else {
+                ToolbarItem(id: "search-space", placement: .automatic) { Spacer() }
+            }
+            #else
+            ToolbarItem(id: "search-space", placement: .automatic) { Spacer() }
+            #endif
+            ToolbarItem(id: "new-reminder", placement: .automatic) {
                 Button(action: beginNewReminder) {
                     Label("New Reminder", systemImage: "plus")
                 }
                 .help("New Reminder (⌘N)")
                 .disabled(needsConnection)
             }
-            ToolbarItem(id: "complete", placement: .primaryAction) {
-                Button {
-                    complete(selectedReminders)
-                } label: {
-                    Label("Mark as Completed", systemImage: "checkmark.circle")
+            #if compiler(>=6.2)
+            if #available(macOS 26.0, *) {
+                ToolbarSpacer(.fixed)
+            } else {
+                ToolbarItem(id: "new-search-space", placement: .automatic) {
+                    Color.clear.frame(width: 8)
                 }
-                .help("Mark as Completed (⌘K)")
-                .disabled(selectedReminders.isEmpty)
             }
-            ToolbarItem(id: "refresh", placement: .primaryAction, showsByDefault: false) {
-                Button(action: refresh) {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .help("Refresh (⌘R)")
+            #else
+            ToolbarItem(id: "new-search-space", placement: .automatic) {
+                Color.clear.frame(width: 8)
+            }
+            #endif
+            ToolbarItem(id: "search", placement: .automatic) {
+                WorkspaceSearchField(text: $searchText, focusRequest: searchFocusRequest)
+                    .frame(width: 210, height: 30)
             }
         }
     }
@@ -406,8 +471,7 @@ struct RemindersWorkspaceView: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(displayTitle)
-                    .font(.largeTitle.bold())
-                    .fontDesign(.rounded)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(displayColor)
                 if let subtitle = currentSelection.subtitle(today: state.currentDay) {
                     Text(subtitle)
@@ -421,10 +485,12 @@ struct RemindersWorkspaceView: View {
                 Text(count, format: .number)
                     .font(.title2.monospacedDigit().weight(.semibold))
                     .foregroundStyle(displayColor)
+                    .frame(width: 28)
                     .accessibilityLabel(Text("^[\(count) open reminder](inflect: true)"))
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.leading, 16)
+        .padding(.trailing, 16)
         .padding(.top, 18)
         .padding(.bottom, 12)
     }
@@ -479,6 +545,13 @@ struct RemindersWorkspaceView: View {
                 return .handled
             }
             .onKeyPress(.escape) {
+                if let timestamp = reminderEscapeEventTimestamp(),
+                   consumedPopoverEscapeTimestamp == timestamp { return .handled }
+                if editorPopover != nil {
+                    consumedPopoverEscapeTimestamp = reminderEscapeEventTimestamp()
+                    editorPopover = nil
+                    return .handled
+                }
                 if let editingSession {
                     guard editingSession.phase != .saving else { return .handled }
                     state.discardEdit(editingSession)
@@ -514,6 +587,7 @@ struct RemindersWorkspaceView: View {
             Text(section.reminders.count, format: .number)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
+                .frame(width: 28)
         }
         .font(.headline)
         .accessibilityAddTraits(.isHeader)
@@ -529,7 +603,9 @@ struct RemindersWorkspaceView: View {
                         onComplete: { complete([reminder]) },
                         onDelete: { requestDelete([reminder]) },
                         onSave: saveCurrentEditor,
-                        onCancel: cancelCurrentEditor
+                        onCancel: cancelCurrentEditor,
+                        editorPopover: $editorPopover,
+                        consumedPopoverEscapeTimestamp: $consumedPopoverEscapeTimestamp
                     )
                     .id(session.id)
                     .selectionDisabled()
@@ -541,12 +617,13 @@ struct RemindersWorkspaceView: View {
                         showsFullDate: currentSelection == .all || currentSelection.isList || section.isOverdue,
                         onComplete: { await completeReporting([reminder]) }
                     )
+                    // Dragging a row must not intercept the editor's text and date controls.
+                    .itemProvider { dragProvider(for: reminder) }
                 }
             }
             .tag(reminder.id)
             .id(reminder.id)
-            // List's own drag API, which leaves click, ⌘-click, ⇧-click, and double-click alone.
-            .itemProvider { dragProvider(for: reminder) }
+            .listRowSeparator(.hidden)
         }
     }
 
@@ -580,11 +657,25 @@ struct RemindersWorkspaceView: View {
 
     // MARK: - Derived data
 
-    private var columnVisibility: Binding<NavigationSplitViewVisibility> {
-        Binding(
-            get: { sidebarHidden ? .detailOnly : .all },
-            set: { sidebarHidden = $0 == .detailOnly }
-        )
+    private func toggleSidebar() {
+        sidebarHidden.toggle()
+    }
+
+    /// The expanded slot ends at the right edge of the fixed-width sidebar's titlebar area.
+    private var sidebarToolbarControl: some View {
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Button(action: toggleSidebar) {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 17, weight: .medium))
+                    .frame(width: 36, height: 36)
+                    .background(.regularMaterial, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .help(sidebarHidden ? "Show Sidebar (⌃⌘S)" : "Hide Sidebar (⌃⌘S)")
+            .accessibilityLabel(sidebarHidden ? "Show Sidebar" : "Hide Sidebar")
+        }
+        .frame(width: sidebarHidden ? 36 : 137)
     }
 
     private var sidebarSelection: Binding<ReminderSidebarSelection?> {
@@ -686,7 +777,9 @@ struct RemindersWorkspaceView: View {
         WorkspaceActions(
             newReminder: beginNewReminder,
             newList: { listEditor = .create },
-            find: { isSearchPresented = true },
+            sidebarHidden: sidebarHidden,
+            toggleSidebar: toggleSidebar,
+            find: { searchFocusRequest += 1 },
             refresh: refresh,
             show: handle,
             lists: state.snapshot.lists,
@@ -750,6 +843,8 @@ struct RemindersWorkspaceView: View {
         guard let id = ids.count == 1 ? ids.first : displayedReminders.first(where: { ids.contains($0.id) })?.id else { return }
         guard editingID != id else { return }
         persistCurrentEditor()
+        editorPopover = nil
+        consumedPopoverEscapeTimestamp = nil
         selection = [id]
         editingSession = state.unsavedEdits.values.first(where: { $0.original.id == id })
             ?? state.reminder(for: id).map(ReminderEditSession.init)
@@ -757,6 +852,8 @@ struct RemindersWorkspaceView: View {
 
     private func endEditing(restoreFocus: Bool = false) {
         persistCurrentEditor()
+        editorPopover = nil
+        consumedPopoverEscapeTimestamp = nil
         editingSession = nil
         if restoreFocus {
             listFocused = false
@@ -1001,7 +1098,7 @@ private struct ReminderRow: View {
             Button(action: complete) {
                 ZStack {
                     Circle()
-                        .strokeBorder(listColor, lineWidth: 1.5)
+                        .strokeBorder(isHoveringCompletion ? listColor : Color(nsColor: .tertiaryLabelColor), lineWidth: 1.5)
                         .frame(width: 18, height: 18)
                     if isHoveringCompletion || isCompleting {
                         Circle()
@@ -1021,18 +1118,19 @@ private struct ReminderRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(reminder.title)
+                    .font(.system(size: 14))
                     .lineLimit(2)
 
                 if let notes = reminder.notes?.trimmed, !notes.isEmpty {
                     Text(notes)
-                        .font(.callout)
+                        .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
 
                 if let metadata {
                     metadata
-                        .font(.caption)
+                        .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -1105,7 +1203,6 @@ private struct QuickTaskComposer: View {
     let onCreated: (String?) -> Void
 
     @State private var title = ""
-    @State private var selectedListID = ""
     @State private var isSubmitting = false
     @FocusState private var focused: Bool
 
@@ -1132,36 +1229,26 @@ private struct QuickTaskComposer: View {
                 .disabled(!canSubmit)
                 .accessibilityLabel("Add reminder")
             }
-            if selection.quickDue != nil || lockedListID == nil {
+            if lockedListID == nil {
                 HStack(spacing: 10) {
-                    if let due = selection.quickDue {
-                        Label {
-                            Text(due.title)
-                        } icon: {
-                            Image(systemName: "calendar")
-                        }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    if lockedListID == nil {
-                        Picker("List", selection: listSelection) {
-                            ForEach(state.snapshot.lists) { list in
-                                Label {
-                                    Text(list.title)
-                                } icon: {
-                                    ListColorDot.image(hex: list.colorHex)
-                                }
-                                .tag(list.id)
+                    Picker("List", selection: listSelection) {
+                        ForEach(state.snapshot.lists) { list in
+                            Label {
+                                Text(list.title)
+                            } icon: {
+                                ListColorDot.image(hex: list.colorHex)
                             }
+                            .tag(list.id)
                         }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: 180)
-                        .help("Choose List")
-                        .disabled(isSubmitting)
                     }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .help("Choose List")
+                    .disabled(isSubmitting)
                     Spacer(minLength: 0)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 28)
             }
         }
@@ -1169,11 +1256,7 @@ private struct QuickTaskComposer: View {
         .padding(.vertical, 10)
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
-        .task { selectDefaultListIfNeeded() }
-        .onChange(of: state.snapshot.lists) { _, _ in selectDefaultListIfNeeded() }
-        .onChange(of: selection) { _, _ in selectDefaultListIfNeeded() }
         .onChange(of: focusRequest) { _, _ in
-            selectDefaultListIfNeeded()
             focused = true
         }
     }
@@ -1187,7 +1270,7 @@ private struct QuickTaskComposer: View {
     private var listSelection: Binding<String> {
         Binding(
             get: { effectiveListID },
-            set: { selectedListID = $0 }
+            set: { state.rememberNewReminderList($0) }
         )
     }
 
@@ -1197,13 +1280,7 @@ private struct QuickTaskComposer: View {
 
     private var effectiveListID: String {
         if let lockedListID { return lockedListID }
-        if state.snapshot.lists.contains(where: { $0.id == selectedListID }) { return selectedListID }
-        return state.defaultListID ?? ""
-    }
-
-    private func selectDefaultListIfNeeded() {
-        guard !state.snapshot.lists.contains(where: { $0.id == selectedListID }) else { return }
-        selectedListID = state.defaultListID ?? state.snapshot.lists.first?.id ?? ""
+        return state.newReminderListID ?? ""
     }
 
     private func submit() {
@@ -1221,6 +1298,49 @@ private struct QuickTaskComposer: View {
             }
             isSubmitting = false
             focused = true
+        }
+    }
+}
+
+private struct WorkspaceSearchField: NSViewRepresentable {
+    @Binding var text: String
+    let focusRequest: Int
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSSearchField {
+        let field = NSSearchField()
+        field.placeholderString = String(localized: "Search")
+        field.setAccessibilityLabel(String(localized: "Search reminders"))
+        field.delegate = context.coordinator
+        return field
+    }
+
+    func updateNSView(_ field: NSSearchField, context: Context) {
+        context.coordinator.parent = self
+        if field.stringValue != text { field.stringValue = text }
+        guard context.coordinator.lastFocusRequest != focusRequest else { return }
+        context.coordinator.lastFocusRequest = focusRequest
+        Task { @MainActor in
+            await Task.yield()
+            guard let window = field.window else { return }
+            window.makeFirstResponder(field)
+            field.currentEditor()?.selectAll(nil)
+        }
+    }
+
+    final class Coordinator: NSObject, NSSearchFieldDelegate {
+        var parent: WorkspaceSearchField
+        var lastFocusRequest: Int
+
+        init(_ parent: WorkspaceSearchField) {
+            self.parent = parent
+            lastFocusRequest = parent.focusRequest
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let field = notification.object as? NSSearchField else { return }
+            parent.text = field.stringValue
         }
     }
 }
