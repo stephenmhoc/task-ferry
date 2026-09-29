@@ -5,6 +5,7 @@ enum ReminderEditorPopover: Equatable {
     case time
 }
 
+@MainActor
 func reminderEscapeEventTimestamp() -> TimeInterval? {
     guard let event = NSApp.currentEvent, event.type == .keyDown, event.keyCode == 53 else { return nil }
     return event.timestamp
