@@ -9,6 +9,19 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app ]]; then
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 fi
+# AppKit's current appearance depends on the SDK the app was linked against.
+# Reject old toolchains before deleting artifacts or starting signing work.
+XCODE_VERSION="$(xcodebuild -version | awk '/^Xcode / { print $2 }')"
+SDK_VERSION="$(xcrun --sdk macosx --show-sdk-version)"
+if [[ ! "$XCODE_VERSION" =~ ^[0-9]+([.][0-9]+)*$ || ! "$SDK_VERSION" =~ ^[0-9]+([.][0-9]+)*$ ]]; then
+  echo "Unable to determine the release Xcode and macOS SDK versions" >&2
+  exit 1
+fi
+if (( ${XCODE_VERSION%%.*} < 27 || ${SDK_VERSION%%.*} < 27 )); then
+  echo "Releases require Xcode 27+ and the macOS 27+ SDK; selected Xcode $XCODE_VERSION / SDK $SDK_VERSION" >&2
+  exit 1
+fi
+printf 'Release toolchain: Xcode %s / macOS SDK %s\n' "$XCODE_VERSION" "$SDK_VERSION"
 BUILD_ROOT="${BUILD_ROOT:-$ROOT/build/release}"
 SPM_CACHE="$BUILD_ROOT/SourcePackages"
 ARCHIVE="$BUILD_ROOT/TaskFerry.xcarchive"
@@ -58,6 +71,12 @@ xcodebuild -exportArchive \
   -exportPath "$EXPORT"
 
 APP="$EXPORT/TaskFerry.app"
+BUILT_SDK="$(/usr/libexec/PlistBuddy -c 'Print :DTSDKName' "$APP/Contents/Info.plist")"
+if [[ ! "$BUILT_SDK" =~ ^macosx([0-9]+)[.] ]] || (( ${BASH_REMATCH[1]} < 27 )); then
+  echo "Exported app was built with an unsupported SDK: $BUILT_SDK" >&2
+  exit 1
+fi
+printf 'Exported app SDK: %s\n' "$BUILT_SDK"
 HELPER="$APP/Contents/MacOS/cloudflared"
 [[ -x "$HELPER" ]] || { echo "The app is missing cloudflared" >&2; exit 1; }
 codesign --verify --strict --verbose=2 "$HELPER"

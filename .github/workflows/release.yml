@@ -19,11 +19,17 @@ concurrency:
 jobs:
   release:
     env:
-      RELEASE_NOTES: "Smoother sidebar navigation and a separate, right-aligned search field. Refines inline editing with compact notes and consistent list, date, and time controls. Remembers the selected list for new reminders across launches."
-    runs-on: macos-15
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+      RELEASE_NOTES: "Built with Xcode 27 and the macOS 27 SDK so Task Ferry adopts the current native window controls and system appearance on macOS Golden Gate. Continues to support macOS 14 and newer."
+    runs-on: xcode-27
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+
+      - name: Report build toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
 
       - name: Select version
         env:

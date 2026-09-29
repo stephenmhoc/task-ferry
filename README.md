@@ -38,7 +38,7 @@ Mutations carry a request ID. If a response is lost in transit, the remote retri
 
 ## Build and test
 
-Requirements: macOS 14 or newer, Xcode, and [XcodeGen](https://github.com/yonaskolb/XcodeGen). Run `scripts/fetch-cloudflared.sh` before a local app build to prepare the pinned, checksum-verified universal connector; release builds do this automatically.
+Requirements: Xcode 27 or newer and [XcodeGen](https://github.com/yonaskolb/XcodeGen). The built app supports macOS 14 or newer. Run `scripts/fetch-cloudflared.sh` before a local app build to prepare the pinned, checksum-verified universal connector; release builds do this automatically.
 
 `xcodegen generate` fails until the connector has been fetched. This is deliberate, so a build can never silently ship without remote access.
 
@@ -165,6 +165,8 @@ scripts/release.sh 0.1.0
 ```
 
 The script uses the `TaskFerry` notarization profile and the Sparkle private key in the login Keychain. It produces a versioned DMG, a stable `TaskFerry.dmg`, an update ZIP, and `appcast.xml` under `build/release/`.
+
+CI and releases use the `xcode-27` runner with Xcode 27.0 explicitly selected. Releases reject Xcode or macOS SDK versions older than 27 and verify the exported app's SDK before notarization. Building against the current SDK enables the current native system appearance on Golden Gate; the macOS 14 deployment target remains the minimum supported OS.
 
 The included GitHub Actions workflow publishes those four files when a `v*` tag is pushed. It requires these repository secrets:
 
