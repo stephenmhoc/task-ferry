@@ -28,6 +28,47 @@ struct CloudflareProvisioningResult: Equatable, Sendable {
     let secrets: CloudflareProvisioningSecrets
 }
 
+/// Non-secret resource identifiers retained until provisioning commits or cleanup succeeds.
+struct CloudflareCleanup: Codable, Equatable, Identifiable, Sendable {
+    var id = UUID()
+    let accountID: String
+    let zoneID: String
+    let hostname: String
+    var tunnelID: String?
+    var serviceTokenID: String?
+    var accessApplicationID: String?
+    var dnsRecordID: String?
+
+    var isEmpty: Bool {
+        tunnelID == nil && serviceTokenID == nil && accessApplicationID == nil && dnsRecordID == nil
+    }
+
+    init(accountID: String, zoneID: String, hostname: String) {
+        self.accountID = accountID
+        self.zoneID = zoneID
+        self.hostname = hostname
+    }
+
+    init(_ provisioning: CloudflareProvisioning) {
+        accountID = provisioning.accountID
+        zoneID = provisioning.zoneID
+        hostname = provisioning.hostname
+        tunnelID = provisioning.tunnelID
+        serviceTokenID = provisioning.serviceTokenID
+        accessApplicationID = provisioning.accessApplicationID
+        dnsRecordID = provisioning.dnsRecordID
+    }
+}
+
+struct CloudflareCleanupError: LocalizedError {
+    let message: String
+    let remaining: CloudflareCleanup
+
+    var errorDescription: String? {
+        "\(message) Cleanup is incomplete for \(remaining.hostname). Retry Cleanup in Settings → Bridge."
+    }
+}
+
 enum CloudflareConnectorState: Equatable, Sendable {
     case notConfigured
     case stopped

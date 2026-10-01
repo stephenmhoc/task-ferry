@@ -352,11 +352,13 @@ private struct BridgeSettingsPane: View {
     private enum CloudflareSheet: Identifiable {
         case setup
         case remove(CloudflareProvisioning)
+        case cleanup
 
         var id: String {
             switch self {
             case .setup: "setup"
             case .remove: "remove"
+            case .cleanup: "cleanup"
             }
         }
     }
@@ -391,6 +393,17 @@ private struct BridgeSettingsPane: View {
                     Button("Set Up with Cloudflare…") {
                         cloudflareSheet = .setup
                     }
+                }
+            }
+
+            if !state.pendingCloudflareCleanups.isEmpty {
+                Section("Unfinished Cleanup") {
+                    Text("Some resources from a previous setup still need to be removed.")
+                        .foregroundStyle(.secondary)
+                    ForEach(state.pendingCloudflareCleanups) { cleanup in
+                        Text(cleanup.hostname).textSelection(.enabled)
+                    }
+                    Button("Retry Cleanup…") { cloudflareSheet = .cleanup }
                 }
             }
 
@@ -454,6 +467,8 @@ private struct BridgeSettingsPane: View {
                 CloudflareSetupView(state: state, purpose: .create)
             case .remove(let provisioning):
                 CloudflareSetupView(state: state, purpose: .remove(provisioning))
+            case .cleanup:
+                CloudflareSetupView(state: state, purpose: .cleanup)
             }
         }
     }

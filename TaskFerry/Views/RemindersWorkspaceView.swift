@@ -847,7 +847,7 @@ struct RemindersWorkspaceView: View {
         consumedPopoverEscapeTimestamp = nil
         selection = [id]
         editingSession = state.unsavedEdits.values.first(where: { $0.original.id == id })
-            ?? state.reminder(for: id).map(ReminderEditSession.init)
+            ?? state.reminder(for: id).map { ReminderEditSession($0, connectionRevision: state.connectionRevision) }
     }
 
     private func endEditing(restoreFocus: Bool = false) {
@@ -939,16 +939,7 @@ struct RemindersWorkspaceView: View {
                 endEditing()
             }
             let reminders = reminders.compactMap { state.reminder(for: $0.id) }
-            if await state.reschedule(reminders, to: option) {
-                let updated = reminders.compactMap { state.reminder(for: $0.id) }
-                ReminderUndo.registerEdit(
-                    restoring: reminders,
-                    redoing: updated,
-                    name: String(localized: "Change Due Date"),
-                    state: state,
-                    undoManager: undoManager
-                )
-            }
+            _ = await state.rescheduleReporting(reminders, to: option, undoManager: undoManager)
         }
     }
 
@@ -961,20 +952,7 @@ struct RemindersWorkspaceView: View {
                 endEditing()
             }
             let moving = moving.compactMap { state.reminder(for: $0.id) }
-            if await state.move(moving, toList: listID) {
-                let updated = moving.map { reminder -> ReminderRecord in
-                    var copy = reminder
-                    copy.listID = listID
-                    return copy
-                }
-                ReminderUndo.registerEdit(
-                    restoring: moving,
-                    redoing: updated,
-                    name: String(localized: "Move to List"),
-                    state: state,
-                    undoManager: undoManager
-                )
-            }
+            _ = await state.moveReporting(moving, toList: listID, undoManager: undoManager)
         }
     }
 
