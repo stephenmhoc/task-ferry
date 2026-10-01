@@ -75,7 +75,7 @@ TASK_FERRY_DEMO=1 .derivedData/Build/Products/Debug/TaskFerry.app/Contents/MacOS
 
 Demo mode uses in-memory reminders and isolated preferences, including after changing roles. It does not access Keychain, request Reminders or notification permission, register login items or global shortcuts, register Services, start listeners/connectors, provision Cloudflare, or start Sparkle. Set `TASK_FERRY_DEMO_ROLE=bridge` to verify the bridge UI safely.
 
-Use `TASK_FERRY_DEMO_SCENARIO` to exercise `unconfigured`, `empty`, `loading`, `offline`, `mutation-failure`, `long-content`, or `provisioned-bridge` (the default is `standard`). The mutation-failure scenario rejects the first change and accepts retries. The offline scenario shows an in-memory cached snapshot. Add `TASK_FERRY_DEMO_APPEARANCE=dark` for dark UI verification and `TASK_FERRY_DEMO_SIZE=compact` for a minimum-width workspace without changing macOS settings. Failed edit drafts remain available for Review, Retry, Copy Draft, or Discard while the app runs; they are not written to disk.
+Use `TASK_FERRY_DEMO_SCENARIO` to exercise `unconfigured`, `empty`, `loading`, `offline`, `mutation-failure`, `long-content`, `provisioned-bridge`, or `unfinished-cleanup` (the default is `standard`). The mutation-failure scenario rejects the first change and accepts retries. The offline scenario shows an in-memory cached snapshot. Add `TASK_FERRY_DEMO_APPEARANCE=dark` for dark UI verification and `TASK_FERRY_DEMO_SIZE=compact` for a minimum-width workspace without changing macOS settings. Failed edit drafts remain available for Review, Retry, Copy Draft, or Discard while the app runs; they are not written to disk.
 
 ## Personal setup
 
@@ -96,6 +96,8 @@ The browser flow uses Cloudflare OAuth Authorization Code with PKCE. The user ch
 - one remotely managed Tunnel whose origin is `http://127.0.0.1:8788`;
 - one proxied CNAME for the hostname the user chose;
 - one Access service token and one self-hosted Access application restricted to that hostname.
+
+If setup fails and rollback cannot remove everything, Task Ferry retains only the remaining resource IDs and hostname. Settings → Bridge offers **Retry Cleanup**; reauthorizing removes those exact resources and clears the recovery record when it succeeds.
 
 The OAuth access token is revoked after provisioning and is never stored. The tunnel token and Access client secret are stored in the macOS Keychain. The bundled connector receives its tunnel token only in its process environment and disables self-updates; signed Task Ferry updates own connector updates. Removing the Cloudflare setup reauthorizes, deletes the exact recorded resources in the user's account, and leaves unrelated resources alone.
 

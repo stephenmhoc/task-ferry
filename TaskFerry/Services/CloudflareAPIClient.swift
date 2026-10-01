@@ -214,15 +214,13 @@ final class CloudflareAPIClient: @unchecked Sendable {
         zone: CloudflareZone,
         subdomain: String,
         localPort: UInt16,
-        accessToken: String
+        accessToken: String,
+        recordCleanup: @escaping @Sendable (CloudflareCleanup) async throws -> Void = { _ in }
     ) async throws -> CloudflareProvisioningResult {
         let hostname = try Self.hostname(subdomain: subdomain, zoneName: zone.name)
         try await ensureHostnameIsAvailable(hostname, zoneID: zone.id, accessToken: accessToken)
 
-        var tunnelID: String?
-        var serviceTokenID: String?
-        var accessApplicationID: String?
-        var dnsRecordID: String?
+        var pending = CloudflareCleanup(accountID: zone.accountID, zoneID: zone.id, hostname: hostname)
 
         do {
             let suffix = UUID().uuidString.lowercased().prefix(8)
@@ -233,7 +231,8 @@ final class CloudflareAPIClient: @unchecked Sendable {
                 body: TunnelCreateRequest(name: "task-ferry-\(suffix)")
             )
             let tunnelResult = try result(from: tunnel, fallback: "Cloudflare did not create the tunnel.")
-            tunnelID = tunnelResult.id
+            pending.tunnelID = tunnelResult.id
+            try await recordCleanup(pending)
 
             let configuration = TunnelConfigurationRequest(
                 config: .init(ingress: [
@@ -269,7 +268,8 @@ final class CloudflareAPIClient: @unchecked Sendable {
                 from: serviceTokenResponse,
                 fallback: "Cloudflare did not create the Access service token."
             )
-            serviceTokenID = serviceToken.id
+            pending.serviceTokenID = serviceToken.id
+            try await recordCleanup(pending)
 
             let accessRequest = AccessApplicationCreateRequest(
                 name: "Task Ferry",
@@ -295,7 +295,8 @@ final class CloudflareAPIClient: @unchecked Sendable {
                 from: accessResponse,
                 fallback: "Cloudflare did not create the Access application. Finish Zero Trust onboarding and try again."
             )
-            accessApplicationID = accessApplication.id
+            pending.accessApplicationID = accessApplication.id
+            try await recordCleanup(pending)
 
             let dnsResponse: APIResponse<DNSRecordResponse> = try await request(
                 path: "zones/\(zone.id)/dns_records",
@@ -307,7 +308,8 @@ final class CloudflareAPIClient: @unchecked Sendable {
                 )
             )
             let dnsRecord = try result(from: dnsResponse, fallback: "Cloudflare did not create the DNS record.")
-            dnsRecordID = dnsRecord.id
+            pending.dnsRecordID = dnsRecord.id
+            try await recordCleanup(pending)
 
             return CloudflareProvisioningResult(
                 provisioning: CloudflareProvisioning(
@@ -326,47 +328,66 @@ final class CloudflareAPIClient: @unchecked Sendable {
                 )
             )
         } catch {
-            await rollback(
-                accountID: zone.accountID,
-                zoneID: zone.id,
-                tunnelID: tunnelID,
-                serviceTokenID: serviceTokenID,
-                accessApplicationID: accessApplicationID,
-                dnsRecordID: dnsRecordID,
-                accessToken: accessToken
-            )
+            do {
+                try await cleanup(pending, accessToken: accessToken, recordCleanup: recordCleanup)
+            } catch let cleanupError as CloudflareCleanupError {
+                throw CloudflareCleanupError(message: "\(error.localizedDescription) \(cleanupError.message)",
+                                             remaining: cleanupError.remaining)
+            }
             throw error
         }
     }
 
     func deleteProvisioning(_ provisioning: CloudflareProvisioning, accessToken: String) async throws {
-        var failures: [String] = []
-        if let failure = await deleteFailure(
-            path: "zones/\(provisioning.zoneID)/dns_records/\(provisioning.dnsRecordID)",
-            accessToken: accessToken
-        ) { failures.append(failure) }
-        if let failure = await deleteFailure(
-            path: "zones/\(provisioning.zoneID)/access/apps/\(provisioning.accessApplicationID)",
-            accessToken: accessToken
-        ) { failures.append(failure) }
-        if let failure = await deleteFailure(
-            path: "accounts/\(provisioning.accountID)/access/service_tokens/\(provisioning.serviceTokenID)",
-            accessToken: accessToken
-        ) { failures.append(failure) }
-        // Cloudflare refuses to delete a tunnel that still has edge connections, and the connector
-        // was only just asked to stop. Clearing its connections first makes removal succeed on
-        // the first try.
-        _ = await deleteFailure(
-            path: "accounts/\(provisioning.accountID)/cfd_tunnel/\(provisioning.tunnelID)/connections",
-            accessToken: accessToken
-        )
-        if let failure = await deleteFailure(
-            path: "accounts/\(provisioning.accountID)/cfd_tunnel/\(provisioning.tunnelID)",
-            accessToken: accessToken
-        ) { failures.append(failure) }
-        guard failures.isEmpty else {
-            throw ReminderServiceError.message("Cloudflare could not remove: \(failures.joined(separator: ", ")).")
+        do {
+            try await cleanup(CloudflareCleanup(provisioning), accessToken: accessToken)
+        } catch let failure as CloudflareCleanupError {
+            // The committed provisioning record still contains every ID, so removal can be
+            // retried through its existing Settings action without a second journal.
+            throw ReminderServiceError.message("\(failure.message) Try removing Cloudflare setup again.")
         }
+    }
+
+    /// Removes only recorded resources, keeping failed identifiers for a later authorized retry.
+    func cleanup(
+        _ pending: CloudflareCleanup,
+        accessToken: String,
+        recordCleanup: @escaping @Sendable (CloudflareCleanup) async throws -> Void = { _ in }
+    ) async throws {
+        var remaining = pending
+        var failures: [String] = []
+        if let id = remaining.dnsRecordID {
+            if await deleteFailure(path: "zones/\(pending.zoneID)/dns_records/\(id)", accessToken: accessToken) == nil {
+                remaining.dnsRecordID = nil
+            } else { failures.append("DNS record") }
+            try await recordCleanup(remaining)
+        }
+        if let id = remaining.accessApplicationID {
+            if await deleteFailure(path: "zones/\(pending.zoneID)/access/apps/\(id)", accessToken: accessToken) == nil {
+                remaining.accessApplicationID = nil
+            } else { failures.append("Access application") }
+            try await recordCleanup(remaining)
+        }
+        if let id = remaining.serviceTokenID {
+            if await deleteFailure(path: "accounts/\(pending.accountID)/access/service_tokens/\(id)", accessToken: accessToken) == nil {
+                remaining.serviceTokenID = nil
+            } else { failures.append("service token") }
+            try await recordCleanup(remaining)
+        }
+        if let id = remaining.tunnelID {
+            // A stopped connector can still have edge connections briefly. Clear them first.
+            _ = await deleteFailure(path: "accounts/\(pending.accountID)/cfd_tunnel/\(id)/connections", accessToken: accessToken)
+            if await deleteFailure(path: "accounts/\(pending.accountID)/cfd_tunnel/\(id)", accessToken: accessToken) == nil {
+                remaining.tunnelID = nil
+            } else { failures.append("tunnel") }
+            try await recordCleanup(remaining)
+        }
+        guard failures.isEmpty else {
+            throw CloudflareCleanupError(message: "Cloudflare could not remove: \(failures.joined(separator: ", ")).",
+                                         remaining: remaining)
+        }
+        // Also clears a persisted empty record, if there was nothing left to delete.
+        try await recordCleanup(remaining)
     }
 
     static func hostname(subdomain: String, zoneName: String) throws -> String {
@@ -396,35 +417,6 @@ final class CloudflareAPIClient: @unchecked Sendable {
             throw ReminderServiceError.message(
                 "\(hostname) already has a DNS record. Choose a different subdomain so Task Ferry does not replace anything."
             )
-        }
-    }
-
-    private func rollback(
-        accountID: String,
-        zoneID: String,
-        tunnelID: String?,
-        serviceTokenID: String?,
-        accessApplicationID: String?,
-        dnsRecordID: String?,
-        accessToken: String
-    ) async {
-        if let dnsRecordID {
-            try? await delete(path: "zones/\(zoneID)/dns_records/\(dnsRecordID)", accessToken: accessToken)
-        }
-        if let accessApplicationID {
-            try? await delete(
-                path: "zones/\(zoneID)/access/apps/\(accessApplicationID)",
-                accessToken: accessToken
-            )
-        }
-        if let serviceTokenID {
-            try? await delete(
-                path: "accounts/\(accountID)/access/service_tokens/\(serviceTokenID)",
-                accessToken: accessToken
-            )
-        }
-        if let tunnelID {
-            try? await delete(path: "accounts/\(accountID)/cfd_tunnel/\(tunnelID)", accessToken: accessToken)
         }
     }
 

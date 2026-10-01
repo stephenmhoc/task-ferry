@@ -269,6 +269,126 @@ final class CloudflareTests: XCTestCase {
         XCTAssertTrue(requests.allSatisfy { $0.authorization == "Bearer oauth-access-token" })
     }
 
+
+    func testFailedProvisioningPersistsOnlyUnremovedIDsAndCleanupCanResumeAfterRestart() async throws {
+        let suite = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let journal = CloudflareCleanupStore(defaults: defaults)
+        let recorder = RequestRecorder()
+        URLProtocolStub.setHandler { request in
+            recorder.append(request)
+            let path = request.url?.path ?? ""
+            let method = request.httpMethod ?? "GET"
+            var status = 200
+            let body: String
+            switch (method, path) {
+            case ("GET", "/client/v4/zones/zone/dns_records"):
+                body = #"{"success":true,"result":[]}"#
+            case ("POST", "/client/v4/accounts/account/cfd_tunnel"):
+                body = #"{"success":true,"result":{"id":"tunnel"}}"#
+            case ("PUT", "/client/v4/accounts/account/cfd_tunnel/tunnel/configurations"):
+                body = #"{"success":true,"result":{}}"#
+            case ("GET", "/client/v4/accounts/account/cfd_tunnel/tunnel/token"):
+                body = #"{"success":true,"result":"TUNNEL-SECRET"}"#
+            case ("POST", "/client/v4/accounts/account/access/service_tokens"):
+                body = #"{"success":true,"result":{"id":"token","client_id":"ACCESS-ID","client_secret":"ACCESS-SECRET"}}"#
+            case ("POST", "/client/v4/zones/zone/access/apps"):
+                body = #"{"success":true,"result":{"id":"app"}}"#
+            case ("POST", "/client/v4/zones/zone/dns_records"):
+                status = 500
+                body = #"{"success":false,"errors":[{"message":"DNS creation failed"}]}"#
+            case ("DELETE", "/client/v4/zones/zone/access/apps/app"):
+                status = 503
+                body = #"{"success":false,"errors":[{"message":"temporary failure"}]}"#
+            default:
+                XCTAssertEqual(method, "DELETE")
+                body = #"{"success":true,"result":{}}"#
+            }
+            return (HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!, Data(body.utf8))
+        }
+        defer { URLProtocolStub.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let api = CloudflareAPIClient(session: URLSession(configuration: configuration))
+        do {
+            _ = try await api.provision(zone: .init(id: "zone", name: "example.com", accountID: "account", accountName: "Account"),
+                subdomain: "tasks", localPort: 8788, accessToken: "OAUTH-SECRET",
+                recordCleanup: { pending in try await journal.record(pending) })
+            XCTFail("Provisioning must fail")
+        } catch let failure as CloudflareCleanupError {
+            XCTAssertTrue(failure.localizedDescription.contains("DNS creation failed"))
+            XCTAssertTrue(failure.localizedDescription.contains("Retry Cleanup"))
+            XCTAssertEqual(failure.remaining.accessApplicationID, "app")
+            XCTAssertNil(failure.remaining.tunnelID)
+            XCTAssertNil(failure.remaining.serviceTokenID)
+        }
+        let reloaded = CloudflareCleanupStore(defaults: defaults)
+        let pending = try XCTUnwrap(reloaded.pending.first)
+        XCTAssertEqual(reloaded.pending.count, 1)
+        XCTAssertEqual(pending.accessApplicationID, "app")
+        XCTAssertNil(pending.tunnelID)
+        XCTAssertNil(pending.serviceTokenID)
+        let persisted = String(data: try JSONEncoder().encode(reloaded.pending), encoding: .utf8)!
+        for secret in ["OAUTH-SECRET", "TUNNEL-SECRET", "ACCESS-SECRET", "ACCESS-ID"] {
+            XCTAssertFalse(persisted.contains(secret))
+        }
+        let retryRecorder = RequestRecorder()
+        URLProtocolStub.setHandler { request in
+            retryRecorder.append(request)
+            return (HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"success":false,"result":null}"#.utf8))
+        }
+        try await api.cleanup(pending, accessToken: "NEW-AUTHORIZATION",
+                              recordCleanup: { pending in try await reloaded.record(pending) })
+        XCTAssertTrue(reloaded.pending.isEmpty)
+        XCTAssertTrue(CloudflareCleanupStore(defaults: defaults).pending.isEmpty)
+        XCTAssertEqual(retryRecorder.snapshot().map(\.path), ["/client/v4/zones/zone/access/apps/app"])
+    }
+
+    func testCleanupRetainsAllFailedResourcesAndAttemptsEveryDeletion() async throws {
+        let recorder = RequestRecorder()
+        URLProtocolStub.setHandler { request in
+            recorder.append(request)
+            return (HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"success":false,"errors":[{"message":"offline"}]}"#.utf8))
+        }
+        defer { URLProtocolStub.setHandler(nil) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [URLProtocolStub.self]
+        let api = CloudflareAPIClient(session: URLSession(configuration: configuration))
+        let pending = CloudflareCleanup(.init(accountID: "account", zoneID: "zone", tunnelID: "tunnel",
+            accessApplicationID: "app", serviceTokenID: "token", dnsRecordID: "dns", hostname: "tasks.example.com"))
+        do {
+            try await api.cleanup(pending, accessToken: "AUTH")
+            XCTFail("Cleanup must fail")
+        } catch let failure as CloudflareCleanupError {
+            XCTAssertEqual(failure.remaining, pending)
+            XCTAssertTrue(failure.message.contains("DNS record"))
+            XCTAssertTrue(failure.message.contains("Access application"))
+            XCTAssertTrue(failure.message.contains("service token"))
+            XCTAssertTrue(failure.message.contains("tunnel"))
+        }
+        XCTAssertEqual(recorder.snapshot().count, 5)
+    }
+
+    func testCommittingProvisioningClearsOnlyItsOwnJournal() throws {
+        let suite = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = CloudflareCleanupStore(defaults: defaults)
+        let provisioning = CloudflareProvisioning(accountID: "account", zoneID: "zone", tunnelID: "tunnel",
+            accessApplicationID: "app", serviceTokenID: "token", dnsRecordID: "dns", hostname: "tasks.example.com")
+        let first = CloudflareCleanup(provisioning)
+        var other = CloudflareCleanup(accountID: "other", zoneID: "zone", hostname: "old.example.com")
+        other.tunnelID = "tunnel"
+        try store.record(first)
+        try store.record(other)
+        try store.commit(provisioning)
+        XCTAssertEqual(store.pending, [other])
+        XCTAssertEqual(CloudflareCleanupStore(defaults: defaults).pending, [other])
+    }
+
     private func requestJSON(
         _ requests: [RecordedRequest],
         method: String,

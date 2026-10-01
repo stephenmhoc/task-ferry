@@ -17,7 +17,7 @@ enum TaskFerryRuntime {
 }
 
 enum DemoScenario: String {
-    case standard, unconfigured, empty, loading, offline, mutationFailure = "mutation-failure", longContent = "long-content", provisionedBridge = "provisioned-bridge"
+    case standard, unconfigured, empty, loading, offline, mutationFailure = "mutation-failure", longContent = "long-content", provisionedBridge = "provisioned-bridge", unfinishedCleanup = "unfinished-cleanup"
     static var current: Self {
         Self(rawValue: ProcessInfo.processInfo.environment["TASK_FERRY_DEMO_SCENARIO"] ?? "") ?? .standard
     }

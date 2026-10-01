@@ -9,6 +9,7 @@ final class ReminderEditSession: Identifiable {
 
     let id = UUID()
     let original: ReminderRecord
+    let connectionRevision: Int?
     var title: String
     var notes: String
     var listID: String
@@ -19,8 +20,9 @@ final class ReminderEditSession: Identifiable {
     private(set) var error: String?
     @ObservationIgnored private var saveTask: Task<Bool, Never>?
 
-    init(_ reminder: ReminderRecord) {
+    init(_ reminder: ReminderRecord, connectionRevision: Int? = nil) {
         original = reminder
+        self.connectionRevision = connectionRevision
         title = reminder.title
         notes = reminder.notes ?? ""
         listID = reminder.listID
@@ -90,6 +92,10 @@ extension AppState {
     @discardableResult
     func saveEdit(_ session: ReminderEditSession, undoManager: UndoManager?) async -> Bool {
         guard session.phase != .discarded else { return false }
+        if let revision = session.connectionRevision, revision != connectionRevision {
+            discardEdit(session)
+            return false
+        }
         unsavedEdits[session.id] = session
         let succeeded = await session.commit { [self] updated in
             guard reminder(for: updated.id) != nil else {

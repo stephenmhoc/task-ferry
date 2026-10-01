@@ -19,6 +19,7 @@ final class ReminderNotificationScheduler: NSObject, UNUserNotificationCenterDel
     private let state: AppState
     private let defaults: UserDefaults
     private var reconcileTask: Task<Void, Never>?
+    private var connectionResetTask: Task<Void, Never>?
     private var isInstalled = false
     private lazy var center = UNUserNotificationCenter.current()
 
@@ -88,7 +89,26 @@ final class ReminderNotificationScheduler: NSObject, UNUserNotificationCenterDel
         }
     }
 
+    /// Remove notifications belonging to the previous bridge before scheduling the new one.
+    func resetConnection() {
+        guard !state.isDemo else { return }
+        reconcileTask?.cancel()
+        let predecessor = connectionResetTask
+        connectionResetTask = Task { @MainActor [weak self] in
+            await predecessor?.value
+            guard let self else { return }
+            let pending = await center.pendingNotificationRequests()
+                .map(\.identifier).filter { $0.hasPrefix(ReminderNotificationPlan.identifierPrefix) }
+            center.removePendingNotificationRequests(withIdentifiers: pending)
+            let delivered = await center.deliveredNotifications()
+                .map { $0.request.identifier }.filter { $0.hasPrefix(ReminderNotificationPlan.identifierPrefix) }
+            center.removeDeliveredNotifications(withIdentifiers: delivered)
+        }
+    }
+
     private func performReconcile() async {
+        await connectionResetTask?.value
+        guard !Task.isCancelled else { return }
         let pending = await center.pendingNotificationRequests()
             .map(\.identifier)
             .filter { $0.hasPrefix(ReminderNotificationPlan.identifierPrefix) }
@@ -122,6 +142,7 @@ final class ReminderNotificationScheduler: NSObject, UNUserNotificationCenterDel
                   !openIDs.contains(id) else { return nil }
             return notification.request.identifier
         }
+        guard !Task.isCancelled else { return }
         center.removeDeliveredNotifications(withIdentifiers: stale)
     }
 

@@ -42,13 +42,23 @@ struct SnapshotCache: Sendable {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             Self.queue.async {
                 defer { continuation.resume() }
-                guard let data = try? JSONEncoder().encode(entry) else { return }
-                let folder = fileURL.deletingLastPathComponent()
-                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-                if (try? data.write(to: fileURL, options: [.atomic])) != nil {
-                    try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
-                }
+                Self.write(entry, to: fileURL)
             }
+        }
+    }
+
+    /// Submit synchronously so a subsequent clear cannot overtake a not-yet-started save Task.
+    func enqueueSave(_ entry: Entry) {
+        guard let fileURL else { return }
+        Self.queue.async { Self.write(entry, to: fileURL) }
+    }
+
+    private static func write(_ entry: Entry, to fileURL: URL) {
+        guard let data = try? JSONEncoder().encode(entry) else { return }
+        let folder = fileURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        if (try? data.write(to: fileURL, options: [.atomic])) != nil {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path)
         }
     }
 

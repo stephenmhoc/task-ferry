@@ -259,6 +259,7 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         state.onDockBadgeChange = { DockBadgeManager.update(count: $0) }
         state.onSnapshotChange = { [weak self] _ in self?.notifications.reconcile() }
+        state.onConnectionChange = { [weak self] in self?.notifications.resetConnection() }
         DockBadgeManager.update(count: state.dockBadgeCount)
 
         // Start syncing now, in parallel with SwiftUI building the first window. A remote Mac

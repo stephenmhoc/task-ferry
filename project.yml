@@ -80,18 +80,22 @@ targets:
       - TaskFerry/Services/ReminderService.swift
       - TaskFerry/Services/ReminderOperationCoordinator.swift
       - TaskFerry/Services/CredentialStore.swift
+      - TaskFerry/Services/CredentialManager.swift
+      - TaskFerry/Services/ReminderConnection.swift
       - TaskFerry/Services/DemoReminderService.swift
       - TaskFerry/Services/BridgeServer.swift
       - TaskFerry/Services/KeychainStore.swift
       - TaskFerry/Services/RemoteReminderService.swift
       - TaskFerry/Services/EventKitReminderService.swift
       - TaskFerry/Services/CloudflareAPIClient.swift
+      - TaskFerry/Services/CloudflareCleanupStore.swift
       - TaskFerry/Services/CloudflareOAuthClient.swift
       - TaskFerry/Services/CloudflareTunnelConnector.swift
       - TaskFerry/Services/RequestLedger.swift
       - TaskFerry/Services/SnapshotCache.swift
       - TaskFerry/Services/ReminderNotificationPlan.swift
       - TaskFerry/Services/ReminderUndo.swift
+      - TaskFerry/Services/ReminderBatchOperations.swift
       - TaskFerry/Services/ReminderEditSession.swift
       - TaskFerry/Services/TaskFerryRuntime.swift
       - TaskFerry/Services/TaskFerryURL.swift

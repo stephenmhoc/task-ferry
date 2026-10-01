@@ -17,8 +17,10 @@ enum ReminderUndo {
     static func registerCompletion(_ ids: [String], completed: Bool, state: AppState, undoManager: UndoManager?) {
         guard let undoManager, !ids.isEmpty else { return }
         let manager = ManagerReference(undoManager)
+        let revision = state.connectionRevision
         undoManager.registerUndo(withTarget: state) { state in
             MainActor.assumeIsolated {
+                guard state.connectionRevision == revision else { return }
                 registerCompletion(ids, completed: !completed, state: state, undoManager: manager.value)
                 Task {
                     for id in ids {
@@ -42,8 +44,10 @@ enum ReminderUndo {
     ) {
         guard let undoManager, !previous.isEmpty else { return }
         let manager = ManagerReference(undoManager)
+        let revision = state.connectionRevision
         undoManager.registerUndo(withTarget: state) { state in
             MainActor.assumeIsolated {
+                guard state.connectionRevision == revision else { return }
                 registerEdit(restoring: next, redoing: previous, name: name, state: state, undoManager: manager.value)
                 Task {
                     for record in previous {

@@ -4,6 +4,7 @@ struct CloudflareSetupView: View {
     enum Purpose {
         case create
         case remove(CloudflareProvisioning)
+        case cleanup
     }
 
     @Environment(\.dismiss) private var dismiss
@@ -25,7 +26,7 @@ struct CloudflareSetupView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(isRemoval ? "Remove Cloudflare setup" : "Set up Cloudflare")
+                Text(isCleanup ? "Finish Cloudflare cleanup" : (isRemoval ? "Remove Cloudflare setup" : "Set up Cloudflare"))
                     .font(.title2.weight(.semibold))
                 Text(explanation)
                     .foregroundStyle(.secondary)
@@ -119,6 +120,10 @@ struct CloudflareSetupView: View {
             VStack(alignment: .leading, spacing: 10) {
                 if case .remove(let provisioning) = purpose {
                     LabeledContent("Public address", value: provisioning.hostname)
+                } else if isCleanup {
+                    ForEach(state.pendingCloudflareCleanups) { cleanup in
+                        LabeledContent("Public address", value: cleanup.hostname)
+                    }
                 }
                 Text("Task Ferry will ask Cloudflare for permission, then remove the exact DNS record, Access application, service token, and tunnel it created.")
                     .fixedSize(horizontal: false, vertical: true)
@@ -134,7 +139,7 @@ struct CloudflareSetupView: View {
     @ViewBuilder
     private var actionButton: some View {
         if isRemoval {
-            Button(isWorking ? "Removing…" : "Authorize & Remove", role: .destructive) {
+            Button(isWorking ? "Removing…" : (isCleanup ? "Authorize & Retry Cleanup" : "Authorize & Remove"), role: .destructive) {
                 run { await remove() }
             }
             .disabled(isWorking)
@@ -166,12 +171,20 @@ struct CloudflareSetupView: View {
         dismiss()
     }
 
-    private var isRemoval: Bool {
-        if case .remove = purpose { return true }
+    private var isCleanup: Bool {
+        if case .cleanup = purpose { return true }
         return false
     }
 
+    private var isRemoval: Bool {
+        if case .remove = purpose { return true }
+        return isCleanup
+    }
+
     private var explanation: String {
+        if isCleanup {
+            return "A previous setup could not finish removing its resources. Authorize Cloudflare again to retry cleanup."
+        }
         if isRemoval {
             return "This removes Task Ferry’s resources from your own Cloudflare account."
         }
@@ -219,12 +232,23 @@ struct CloudflareSetupView: View {
                 zone: selectedZone,
                 subdomain: subdomain,
                 localPort: state.port,
-                accessToken: token
+                accessToken: token,
+                recordCleanup: { cleanup in try await state.recordPendingCloudflareCleanup(cleanup) }
             )
             do {
                 try await state.saveCloudflareProvisioning(result)
             } catch {
-                try? await api.deleteProvisioning(result.provisioning, accessToken: token)
+                do {
+                    // Reuse the journal's identity so each successful deletion updates that record.
+                    let pending = state.pendingCloudflareCleanups.first {
+                        $0.accountID == result.provisioning.accountID && $0.tunnelID == result.provisioning.tunnelID
+                    } ?? CloudflareCleanup(result.provisioning)
+                    try await api.cleanup(pending, accessToken: token,
+                        recordCleanup: { cleanup in try await state.recordPendingCloudflareCleanup(cleanup) })
+                } catch let cleanupError as CloudflareCleanupError {
+                    throw CloudflareCleanupError(message: "\(error.localizedDescription) \(cleanupError.message)",
+                                                 remaining: cleanupError.remaining)
+                }
                 throw error
             }
             await revokeAuthorization()
@@ -238,7 +262,7 @@ struct CloudflareSetupView: View {
 
     private func remove() async {
         guard !state.isDemo else { return }
-        guard !isWorking, case .remove(let provisioning) = purpose else { return }
+        guard !isWorking, isRemoval else { return }
         isWorking = true
         message = nil
         do {
@@ -249,9 +273,17 @@ struct CloudflareSetupView: View {
             accessToken = token
             isCommitting = true
             defer { isCommitting = false }
-            state.stopCloudflareConnector()
-            try await CloudflareAPIClient().deleteProvisioning(provisioning, accessToken: token)
-            try await state.removeStoredCloudflareProvisioning()
+            let api = CloudflareAPIClient()
+            if case .remove(let provisioning) = purpose {
+                state.stopCloudflareConnector()
+                try await api.deleteProvisioning(provisioning, accessToken: token)
+                try await state.removeStoredCloudflareProvisioning()
+            } else {
+                for pending in state.pendingCloudflareCleanups {
+                    try await api.cleanup(pending, accessToken: token,
+                        recordCleanup: { cleanup in try await state.recordPendingCloudflareCleanup(cleanup) })
+                }
+            }
             await revokeAuthorization()
             dismiss()
         } catch {
