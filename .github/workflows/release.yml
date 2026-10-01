@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "Built with Xcode 27 and the macOS 27 SDK so Task Ferry adopts the current native window controls and system appearance on macOS Golden Gate. Continues to support macOS 14 and newer."
+      RELEASE_NOTES: "Fixes stale credentials and reminder data when changing connections, preserves Undo and Redo for successful items in partially failed bulk operations, and lets unfinished Cloudflare provisioning cleanup resume from Settings. Built with Xcode 27 and the macOS 27 SDK; supports macOS 14 and newer."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
