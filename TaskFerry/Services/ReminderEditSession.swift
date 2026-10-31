@@ -38,7 +38,7 @@ final class ReminderEditSession: Identifiable {
             && (initial == nil || dueDate == initial?.date())
         let due = untouched ? initial : (hasDue ? ReminderDue(date: dueDate, includesTime: includesTime) : nil)
         return ReminderRecord(id: original.id, listID: listID, title: title.trimmed,
-                              notes: notes.trimmed.isEmpty ? nil : notes, due: due)
+                              notes: notes.trimmed.isEmpty ? nil : notes, due: due, url: original.url)
     }
 
     func discard() {

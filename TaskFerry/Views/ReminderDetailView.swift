@@ -73,6 +73,7 @@ struct InlineReminderEditor: View {
             }
             if session.phase == .saving { ProgressView("Saving…").controlSize(.small) }
             HStack {
+                ReminderLinkMenu(urls: ReminderLinks.urls(title: session.title, notes: session.notes, url: session.original.url))
                 Spacer()
                 Button("Delete", role: .destructive, action: onDelete)
                     .buttonStyle(.borderedProminent)

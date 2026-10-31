@@ -193,7 +193,8 @@ final class EventKitReminderService: ReminderService {
             listID: calendar.calendarIdentifier,
             title: reminder.title ?? "Untitled Reminder",
             notes: reminder.notes,
-            due: reminder.dueDateComponents.map(ReminderDue.init)
+            due: reminder.dueDateComponents.map(ReminderDue.init),
+            url: reminder.url
         )
     }
 

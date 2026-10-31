@@ -21,6 +21,7 @@
 		1B74507B888D54FC1AC84041 /* DemoIsolationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5A9153BCB020203F5078687 /* DemoIsolationTests.swift */; };
 		2758D8D63208F994FB8C4218 /* DemoReminderServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0862A6022F701A784D25BD47 /* DemoReminderServiceTests.swift */; };
 		29513C903C9A522C30F14C3E /* MenuRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF6290C6B74AEC75C990D52 /* MenuRootView.swift */; };
+		2A2F891B2DDB4426C059EEEF /* ReminderLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE4925DAD9FE749F1305171 /* ReminderLinks.swift */; };
 		2DE89CA26E323292ADBAC168 /* BridgeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FD37A1518CA6BC6C91462F0 /* BridgeServer.swift */; };
 		320340A1A2576C9626FC5138 /* ReminderEditSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8448DBA85C5A45652FD81D18 /* ReminderEditSessionTests.swift */; };
 		331D68E426A507C9820BB001 /* BridgeTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAF8E926CF285ABECAE72C01 /* BridgeTokenTests.swift */; };
@@ -76,6 +77,7 @@
 		B8B180C52C549F6FDEE7B6C2 /* RequestLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3727109685D129BB1288DA51 /* RequestLedger.swift */; };
 		BA2344E69EDE38626F17C077 /* ReliabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D1C27B37CB3983980FF4A52 /* ReliabilityTests.swift */; };
 		C61908B77BF3ADEC599B2915 /* DemoReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE2DD54FA0E8DB25016F0009 /* DemoReminderService.swift */; };
+		C64A6FA6D38436190711B932 /* ReminderLinkMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3301D1B8B11F0679D3089FB1 /* ReminderLinkMenu.swift */; };
 		CB6D43C933CE91E6150B098C /* CloudflareOAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55ABD56FC51E50ECB96678D8 /* CloudflareOAuthClient.swift */; };
 		CB7199DBB8559C40A5B7E28B /* RemoteResponseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F6088535CD32B9C816E9F2B /* RemoteResponseTests.swift */; };
 		D02629244204295A19D0CACF /* ReminderBatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */; };
@@ -84,6 +86,8 @@
 		DA35B2A48EA79949271C1BAA /* TaskFerryURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D8A31A625D40F1F46273FE /* TaskFerryURL.swift */; };
 		DB1D3069BEF832B5105ADDB7 /* cloudflared in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5E8F21B5DE1B27F9ED4DC03C /* cloudflared */; };
 		DC13AC1AFD27D56AF5B30A88 /* RequestLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3727109685D129BB1288DA51 /* RequestLedger.swift */; };
+		DD3F9001EA19C097F73FB466 /* ReminderLinksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE99CA2B6B5E61789B779AE /* ReminderLinksTests.swift */; };
+		DFE98D3F4B653061E143073E /* ReminderLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE4925DAD9FE749F1305171 /* ReminderLinks.swift */; };
 		E01CC0B263CFE3D76956CF34 /* EventKitReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E81B612719438FCA73F950 /* EventKitReminderService.swift */; };
 		E172146E8E790D4D37CF7B20 /* CloudflareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83EC11A6BDE300EF3C284C27 /* CloudflareTests.swift */; };
 		E4206DBA96F9592C0BBDA32F /* TaskFerryTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C2A03A5876B98B51FB3ED2 /* TaskFerryTheme.swift */; };
@@ -129,6 +133,7 @@
 		1F6088535CD32B9C816E9F2B /* RemoteResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteResponseTests.swift; sourceTree = "<group>"; };
 		20FA28251C07E784FA766CE0 /* ReminderEditSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderEditSession.swift; sourceTree = "<group>"; };
 		2FD37A1518CA6BC6C91462F0 /* BridgeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeServer.swift; sourceTree = "<group>"; };
+		3301D1B8B11F0679D3089FB1 /* ReminderLinkMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderLinkMenu.swift; sourceTree = "<group>"; };
 		3727109685D129BB1288DA51 /* RequestLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequestLedger.swift; sourceTree = "<group>"; };
 		38D57A550FC237BC4319BCC7 /* TaskFerryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TaskFerryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		38E8840EF7BFF9853B10184D /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
@@ -139,6 +144,7 @@
 		5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderBatchTests.swift; sourceTree = "<group>"; };
 		55ABD56FC51E50ECB96678D8 /* CloudflareOAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareOAuthClient.swift; sourceTree = "<group>"; };
 		59FA286D467C675F39B3EB4E /* ConnectionLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionLifecycleTests.swift; sourceTree = "<group>"; };
+		5AE4925DAD9FE749F1305171 /* ReminderLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderLinks.swift; sourceTree = "<group>"; };
 		5BF6290C6B74AEC75C990D52 /* MenuRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRootView.swift; sourceTree = "<group>"; };
 		5E8F21B5DE1B27F9ED4DC03C /* cloudflared */ = {isa = PBXFileReference; path = cloudflared; sourceTree = "<group>"; };
 		64F546C3E708667FF321FD0F /* ListEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListEditorSheet.swift; sourceTree = "<group>"; };
@@ -180,6 +186,7 @@
 		DA0EB6D5A1517A666AC25788 /* CloudflareSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareSetupView.swift; sourceTree = "<group>"; };
 		DA7850D8573A89B198AFD83E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		DC9BAB42F919A6F4DDE3F4D6 /* ReminderDueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderDueTests.swift; sourceTree = "<group>"; };
+		DEE99CA2B6B5E61789B779AE /* ReminderLinksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderLinksTests.swift; sourceTree = "<group>"; };
 		E5A9153BCB020203F5078687 /* DemoIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoIsolationTests.swift; sourceTree = "<group>"; };
 		EB0F14CB5D185CF4FAC95DFA /* TaskFerry-Direct.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "TaskFerry-Direct.entitlements"; sourceTree = "<group>"; };
 		EB3A64D3DB7D0A3BA9578886 /* TaskFerry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TaskFerry.entitlements; sourceTree = "<group>"; };
@@ -216,6 +223,7 @@
 				5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */,
 				DC9BAB42F919A6F4DDE3F4D6 /* ReminderDueTests.swift */,
 				8448DBA85C5A45652FD81D18 /* ReminderEditSessionTests.swift */,
+				DEE99CA2B6B5E61789B779AE /* ReminderLinksTests.swift */,
 				B15D7D2F904CFB4AD3407593 /* ReminderOperationCoordinatorTests.swift */,
 				8A98D7CB49461178A8D7A902 /* ReminderUndoTests.swift */,
 				3CAEB6CE963CBCE4C64D6BD6 /* RemoteConfigurationTests.swift */,
@@ -285,6 +293,7 @@
 				5BF6290C6B74AEC75C990D52 /* MenuRootView.swift */,
 				8B65434108D6E8108BD12A74 /* QuickEntryView.swift */,
 				4F88C908376F5B52C56E1F9B /* ReminderDetailView.swift */,
+				3301D1B8B11F0679D3089FB1 /* ReminderLinkMenu.swift */,
 				CD8477AD2D1D161E619CACA2 /* ReminderPresentation.swift */,
 				7BA43021B55744BC69F34B30 /* RemindersWorkspaceView.swift */,
 				C890C6B4795075390038A326 /* SettingsView.swift */,
@@ -307,6 +316,7 @@
 			children = (
 				14931A8D7EE4CFA217D04514 /* CloudflareModels.swift */,
 				089F88EF1D818C5FAA3BCBED /* Models.swift */,
+				5AE4925DAD9FE749F1305171 /* ReminderLinks.swift */,
 				F507EC0C94EEC57C2551AB71 /* RemoteConfiguration.swift */,
 			);
 			path = Models;
@@ -489,6 +499,8 @@
 				013F1E509F40623D6584A351 /* ReminderConnection.swift in Sources */,
 				5ECDE37D0A09C19EDB9E7688 /* ReminderDetailView.swift in Sources */,
 				33E2C016D284FD4FA8F06763 /* ReminderEditSession.swift in Sources */,
+				C64A6FA6D38436190711B932 /* ReminderLinkMenu.swift in Sources */,
+				2A2F891B2DDB4426C059EEEF /* ReminderLinks.swift in Sources */,
 				9DF8CAB1820D7C3EB204F689 /* ReminderNotificationPlan.swift in Sources */,
 				96C1BEED124B32F2E3EC1ACE /* ReminderNotificationScheduler.swift in Sources */,
 				611CA3FB9E6CA3C3D09A43E2 /* ReminderOperationCoordinator.swift in Sources */,
@@ -545,6 +557,8 @@
 				D48C3A3DEDFEF7DB8B6EAB80 /* ReminderDueTests.swift in Sources */,
 				1997E5404B0AEC358DE72827 /* ReminderEditSession.swift in Sources */,
 				320340A1A2576C9626FC5138 /* ReminderEditSessionTests.swift in Sources */,
+				DFE98D3F4B653061E143073E /* ReminderLinks.swift in Sources */,
+				DD3F9001EA19C097F73FB466 /* ReminderLinksTests.swift in Sources */,
 				A08264617B8C9577C605913C /* ReminderNotificationPlan.swift in Sources */,
 				83F9F9BBC2AE59F4CD0F5A01 /* ReminderOperationCoordinator.swift in Sources */,
 				E8B654C2DB0AC36967245EBB /* ReminderOperationCoordinatorTests.swift in Sources */,
@@ -613,7 +627,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 0.1.20;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -692,7 +706,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 0.1.20;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -853,7 +867,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.19;
+				MARKETING_VERSION = 0.1.20;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

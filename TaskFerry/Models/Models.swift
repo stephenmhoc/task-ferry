@@ -137,6 +137,8 @@ struct ReminderRecord: Codable, Hashable, Identifiable, Sendable {
     var title: String
     var notes: String? = nil
     var due: ReminderDue?
+    /// Apple Reminders' dedicated URL, displayed read-only. Older bridges omit this field.
+    var url: URL? = nil
 }
 
 struct ReminderSnapshot: Codable, Equatable, Sendable {

@@ -36,6 +36,12 @@ final class DemoReminderService: ReminderService {
             defaultListID: "personal"
         )
         if scenario == .empty { value.reminders = [] }
+        if scenario == .links {
+            value.reminders[0].title = "Read https://example.com"
+            value.reminders[0].notes = "Compare https://www.apple.com and www.iana.org."
+            value.reminders[1].url = URL(string: "https://example.org")
+            value.reminders[3].notes = String(repeating: "Detailed planning notes for review.\n", count: 8) + "https://example.net"
+        }
         if scenario == .longContent {
             value.lists[0].title = "Personal projects and plans for the coming year"
             value.reminders[0].title = "Review the complete quarterly planning document with engineering and design, then send the revised schedule before the planning meeting"

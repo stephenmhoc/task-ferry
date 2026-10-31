@@ -633,6 +633,7 @@ struct RemindersWorkspaceView: View {
         if !reminders.isEmpty {
             if reminders.count == 1 {
                 Button("Show Info") { beginEditing(ids) }
+                ReminderLinkMenu(urls: ReminderLinks.urls(for: reminders[0]))
             }
             Button("Mark as Completed") { complete(reminders) }
             Divider()
@@ -717,6 +718,7 @@ struct RemindersWorkspaceView: View {
         return baseReminders.filter { reminder in
             reminder.title.localizedStandardContains(query)
                 || reminder.notes?.localizedStandardContains(query) == true
+                || reminder.url?.absoluteString.localizedStandardContains(query) == true
                 || state.list(for: reminder.listID)?.title.localizedStandardContains(query) == true
         }
     }
@@ -1062,6 +1064,7 @@ private extension ReminderSidebarSelection {
 // MARK: - Row
 
 private struct ReminderRow: View {
+    @Environment(\.openURL) private var openURL
     let state: AppState
     let reminder: ReminderRecord
     let showsList: Bool
@@ -1095,15 +1098,23 @@ private struct ReminderRow: View {
             .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(reminder.title)
+                Text(ReminderLinks.attributed(reminder.title))
                     .font(.system(size: 14))
                     .lineLimit(2)
 
                 if let notes = reminder.notes?.trimmed, !notes.isEmpty {
-                    Text(notes)
+                    Text(ReminderLinks.attributed(notes))
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
+                }
+
+                if let url = reminder.url {
+                    Link(destination: url) {
+                        Label(url.absoluteString, systemImage: "link")
+                            .font(.system(size: 13))
+                            .lineLimit(1)
+                    }
                 }
 
                 if let metadata {
@@ -1119,6 +1130,11 @@ private struct ReminderRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAction(named: "Mark as Completed", complete)
+        .accessibilityActions {
+            ForEach(ReminderLinks.urls(for: reminder), id: \.self) { url in
+                Button("Open \(url.absoluteString)") { openURL(url) }
+            }
+        }
     }
 
     private var isOverdue: Bool { state.isOverdue(reminder) }

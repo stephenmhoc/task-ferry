@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "Fixes stale credentials and reminder data when changing connections, preserves Undo and Redo for successful items in partially failed bulk operations, and lets unfinished Cloudflare provisioning cleanup resume from Settings. Built with Xcode 27 and the macOS 27 SDK; supports macOS 14 and newer."
+      RELEASE_NOTES: "Links in reminder titles and notes are now clickable. Displays links stored in Apple Reminders' URL field, adds Open Link menus for long reminders and editing, and makes dedicated URLs searchable. Includes accessible link actions. Supports macOS 14 and newer."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
