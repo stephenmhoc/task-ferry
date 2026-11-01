@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "Task Ferry now reports crashes, hangs, and unexpected failures to Sentry, because a bridge runs unattended and its problems were otherwise invisible. Reports hold stack traces, system exception text, error codes, and version and system details, and never your reminders, lists, Cloudflare hostnames, or credentials. It's on by default, and you can turn it off in Settings under Send crash reports. Requires macOS 26 or newer."
+      RELEASE_NOTES: "Fixes the floating add button, which lost its color and made a drag land on the list above the pointer because the sidebar and the button measured positions from different origins. Sidebar rows can be clicked again, after the button's drag tracking stopped them from being selected."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
