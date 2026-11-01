@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "The + button is now real Liquid Glass and follows your pointer when you drag it onto a list, because the old drag left a ghost button under the cursor. Every reminder now shows its list by name and with a coloured circle, and list titles no longer stick to the top as you scroll, because the pinned headers looked odd on load and while scrolling. The title bar's + and the open reminder count are gone, since the floating button and the sidebar already cover them. Requires macOS 26 or newer."
+      RELEASE_NOTES: "Task Ferry now reports crashes, hangs, and unexpected failures to Sentry, because a bridge runs unattended and its problems were otherwise invisible. Reports hold stack traces, system exception text, error codes, and version and system details, and never your reminders, lists, Cloudflare hostnames, or credentials. It's on by default, and you can turn it off in Settings under Send crash reports. Requires macOS 26 or newer."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
