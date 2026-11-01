@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "Creating and editing a reminder are now the same native form, in a popover like a Calendar event, because the old inline editor and footer never felt like a Mac app. A floating + button replaces the footer: click it, or drag it onto a list to start a reminder there. Settings now has a default list for new reminders, which Quick Entry no longer changes behind your back. The sidebar can no longer shrink far enough to cut the title bar buttons in half. Requires macOS 26 or newer."
+      RELEASE_NOTES: "The + button is now real Liquid Glass and follows your pointer when you drag it onto a list, because the old drag left a ghost button under the cursor. Every reminder now shows its list by name and with a coloured circle, and list titles no longer stick to the top as you scroll, because the pinned headers looked odd on load and while scrolling. The title bar's + and the open reminder count are gone, since the floating button and the sidebar already cover them. Requires macOS 26 or newer."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
