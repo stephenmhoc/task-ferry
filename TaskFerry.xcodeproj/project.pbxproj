@@ -39,6 +39,7 @@
 		4EAC55537DF9CE105F6647E6 /* QuickEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B65434108D6E8108BD12A74 /* QuickEntryView.swift */; };
 		4FFD5FAEA672A96C4AA98F21 /* TaskFerryRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A7B083D1BA2B9D93C32A0 /* TaskFerryRuntime.swift */; };
 		5315BF8EB1A3E531F71BBFE5 /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4B236A4AD5F5AFF69F2FA19 /* KeychainStore.swift */; };
+		540FBB1503290B6D628D8FF8 /* CrashReporting.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2F69B33A5BD14DD00EEB8BB /* CrashReporting.swift */; };
 		55C7A0722A9A58FF97E6C702 /* RemoteConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F507EC0C94EEC57C2551AB71 /* RemoteConfiguration.swift */; };
 		55EA72E0684B701949631C43 /* QuickEntryPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02639A061AD6B1D7DC367DAF /* QuickEntryPanelController.swift */; };
 		577B7095F8D46939D2093AA7 /* RemoteConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAEB6CE963CBCE4C64D6BD6 /* RemoteConfigurationTests.swift */; };
@@ -53,6 +54,7 @@
 		6B20BCDD8A0AB7BC45913B63 /* SnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D91048A09C2CA2FD1A989923 /* SnapshotCache.swift */; };
 		6C0229996D94D09A067DE55B /* RemindersWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA43021B55744BC69F34B30 /* RemindersWorkspaceView.swift */; };
 		7054BD1A3779906826A8A58C /* ReminderBatchOperations.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF7FECD66E6AE0106A857721 /* ReminderBatchOperations.swift */; };
+		721AC1B6886BF541C7E757DF /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534D49A92FB4684F2B177EA5 /* Diagnostics.swift */; };
 		751AEF40ABC428A4188B7108 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 9BDB648E3C2CA1E7A4CC907B /* Sparkle */; };
 		759C0A0C64285C39BA1C8E61 /* ProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A142AD5432BD3D7F07A8768 /* ProtocolTests.swift */; };
 		76C95316DC0973F18C5790E0 /* RemoteReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A35921E8BB4328C52C89308 /* RemoteReminderService.swift */; };
@@ -82,15 +84,18 @@
 		C64A6FA6D38436190711B932 /* ReminderLinkMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3301D1B8B11F0679D3089FB1 /* ReminderLinkMenu.swift */; };
 		CB6D43C933CE91E6150B098C /* CloudflareOAuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55ABD56FC51E50ECB96678D8 /* CloudflareOAuthClient.swift */; };
 		CB7199DBB8559C40A5B7E28B /* RemoteResponseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F6088535CD32B9C816E9F2B /* RemoteResponseTests.swift */; };
+		CC15E1E71EEB100EDDFB9A00 /* Diagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 534D49A92FB4684F2B177EA5 /* Diagnostics.swift */; };
 		D02629244204295A19D0CACF /* ReminderBatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */; };
 		D1EB965E65AE3F3206B64A8A /* CloudflareModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14931A8D7EE4CFA217D04514 /* CloudflareModels.swift */; };
 		D48C3A3DEDFEF7DB8B6EAB80 /* ReminderDueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9BAB42F919A6F4DDE3F4D6 /* ReminderDueTests.swift */; };
+		D78D4399C840D00F99AF6D13 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = E5A62B10239688D89438CC19 /* Sentry */; };
 		DA35B2A48EA79949271C1BAA /* TaskFerryURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D8A31A625D40F1F46273FE /* TaskFerryURL.swift */; };
 		DB1D3069BEF832B5105ADDB7 /* cloudflared in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5E8F21B5DE1B27F9ED4DC03C /* cloudflared */; };
 		DC13AC1AFD27D56AF5B30A88 /* RequestLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3727109685D129BB1288DA51 /* RequestLedger.swift */; };
 		DD3F9001EA19C097F73FB466 /* ReminderLinksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEE99CA2B6B5E61789B779AE /* ReminderLinksTests.swift */; };
 		DFE98D3F4B653061E143073E /* ReminderLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE4925DAD9FE749F1305171 /* ReminderLinks.swift */; };
 		E01CC0B263CFE3D76956CF34 /* EventKitReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0E81B612719438FCA73F950 /* EventKitReminderService.swift */; };
+		E0EF1ABF170587945B821A18 /* DiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD5B2C5B97E3B633A7F48CA /* DiagnosticsTests.swift */; };
 		E172146E8E790D4D37CF7B20 /* CloudflareTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83EC11A6BDE300EF3C284C27 /* CloudflareTests.swift */; };
 		E4206DBA96F9592C0BBDA32F /* TaskFerryTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C2A03A5876B98B51FB3ED2 /* TaskFerryTheme.swift */; };
 		E8B654C2DB0AC36967245EBB /* ReminderOperationCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15D7D2F904CFB4AD3407593 /* ReminderOperationCoordinatorTests.swift */; };
@@ -155,6 +160,7 @@
 		48304F6EC88C120975755421 /* WorkspaceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceUITests.swift; sourceTree = "<group>"; };
 		4A892D70576AAA67D3165488 /* Info-Dev.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Info-Dev.plist"; sourceTree = "<group>"; };
 		520DB7327FF061A3B4D74847 /* TitlebarButtons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlebarButtons.swift; sourceTree = "<group>"; };
+		534D49A92FB4684F2B177EA5 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderBatchTests.swift; sourceTree = "<group>"; };
 		55ABD56FC51E50ECB96678D8 /* CloudflareOAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareOAuthClient.swift; sourceTree = "<group>"; };
 		59FA286D467C675F39B3EB4E /* ConnectionLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionLifecycleTests.swift; sourceTree = "<group>"; };
@@ -186,11 +192,13 @@
 		A61CE4D480A804C09D970DAB /* Info-Direct.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Info-Direct.plist"; sourceTree = "<group>"; };
 		AC41129763EBE01D6A625BBD /* ReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderService.swift; sourceTree = "<group>"; };
 		B15D7D2F904CFB4AD3407593 /* ReminderOperationCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderOperationCoordinatorTests.swift; sourceTree = "<group>"; };
+		B2F69B33A5BD14DD00EEB8BB /* CrashReporting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReporting.swift; sourceTree = "<group>"; };
 		BCD6BCBB679D119D6A82AFD5 /* CredentialStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStoreTests.swift; sourceTree = "<group>"; };
 		BF7FECD66E6AE0106A857721 /* ReminderBatchOperations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderBatchOperations.swift; sourceTree = "<group>"; };
 		C0D8A31A625D40F1F46273FE /* TaskFerryURL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFerryURL.swift; sourceTree = "<group>"; };
 		C6CB77C66C0D9D02A5CE4FBD /* TaskFerryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFerryApp.swift; sourceTree = "<group>"; };
 		C890C6B4795075390038A326 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		CAD5B2C5B97E3B633A7F48CA /* DiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsTests.swift; sourceTree = "<group>"; };
 		CD8477AD2D1D161E619CACA2 /* ReminderPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderPresentation.swift; sourceTree = "<group>"; };
 		CE2DD54FA0E8DB25016F0009 /* DemoReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoReminderService.swift; sourceTree = "<group>"; };
 		D0E81B612719438FCA73F950 /* EventKitReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventKitReminderService.swift; sourceTree = "<group>"; };
@@ -216,6 +224,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				751AEF40ABC428A4188B7108 /* Sparkle in Frameworks */,
+				D78D4399C840D00F99AF6D13 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -233,6 +242,7 @@
 				BCD6BCBB679D119D6A82AFD5 /* CredentialStoreTests.swift */,
 				E5A9153BCB020203F5078687 /* DemoIsolationTests.swift */,
 				0862A6022F701A784D25BD47 /* DemoReminderServiceTests.swift */,
+				CAD5B2C5B97E3B633A7F48CA /* DiagnosticsTests.swift */,
 				0A142AD5432BD3D7F07A8768 /* ProtocolTests.swift */,
 				1D1C27B37CB3983980FF4A52 /* ReliabilityTests.swift */,
 				5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */,
@@ -269,6 +279,7 @@
 		396F17CFC4613B2B2F882230 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				B2F69B33A5BD14DD00EEB8BB /* CrashReporting.swift */,
 				FFEC0BC0BBAC79A314445D73 /* GlobalHotKey.swift */,
 				9D29BDF8DAB2B1F9950C6D93 /* Pasteboard.swift */,
 				02639A061AD6B1D7DC367DAF /* QuickEntryPanelController.swift */,
@@ -359,6 +370,7 @@
 				A17EF84ED606A796CC25EC29 /* CredentialManager.swift */,
 				439D6E88D4070EB863DD8279 /* CredentialStore.swift */,
 				CE2DD54FA0E8DB25016F0009 /* DemoReminderService.swift */,
+				534D49A92FB4684F2B177EA5 /* Diagnostics.swift */,
 				D0E81B612719438FCA73F950 /* EventKitReminderService.swift */,
 				D4B236A4AD5F5AFF69F2FA19 /* KeychainStore.swift */,
 				BF7FECD66E6AE0106A857721 /* ReminderBatchOperations.swift */,
@@ -415,6 +427,7 @@
 			name = TaskFerry;
 			packageProductDependencies = (
 				9BDB648E3C2CA1E7A4CC907B /* Sparkle */,
+				E5A62B10239688D89438CC19 /* Sentry */,
 			);
 			productName = TaskFerry;
 			productReference = 6CE2147564AB064353F50CA0 /* TaskFerry.app */;
@@ -469,6 +482,7 @@
 			mainGroup = 3CD2DAC7A9C087AD5B593D6F;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				B2606187B17383E1457E7595 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				2D897C6D2EB27E5D8B15380F /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -540,9 +554,11 @@
 				A365DA4E95FCF86A6F8DC094 /* CloudflareOAuthClient.swift in Sources */,
 				59A182624B1D47885EB65699 /* CloudflareSetupView.swift in Sources */,
 				B26B1D52B0A67BD4A006169D /* CloudflareTunnelConnector.swift in Sources */,
+				540FBB1503290B6D628D8FF8 /* CrashReporting.swift in Sources */,
 				8D9F17B75C8CE3E39E99BCA0 /* CredentialManager.swift in Sources */,
 				AAA32510EFAD3A5287839414 /* CredentialStore.swift in Sources */,
 				C61908B77BF3ADEC599B2915 /* DemoReminderService.swift in Sources */,
+				CC15E1E71EEB100EDDFB9A00 /* Diagnostics.swift in Sources */,
 				125DA0BE7D79D586EF8F4AD8 /* EventKitReminderService.swift in Sources */,
 				F0B937752ED20EED3C02059E /* GlobalHotKey.swift in Sources */,
 				1AF06B81E5CD3ED2288CC848 /* KeychainStore.swift in Sources */,
@@ -604,6 +620,8 @@
 				1B74507B888D54FC1AC84041 /* DemoIsolationTests.swift in Sources */,
 				42941DCF8A89F95A7A5F41BD /* DemoReminderService.swift in Sources */,
 				2758D8D63208F994FB8C4218 /* DemoReminderServiceTests.swift in Sources */,
+				721AC1B6886BF541C7E757DF /* Diagnostics.swift in Sources */,
+				E0EF1ABF170587945B821A18 /* DiagnosticsTests.swift in Sources */,
 				E01CC0B263CFE3D76956CF34 /* EventKitReminderService.swift in Sources */,
 				5315BF8EB1A3E531F71BBFE5 /* KeychainStore.swift in Sources */,
 				345B0169000F29C43930EDCD /* Models.swift in Sources */,
@@ -908,6 +926,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.merimerimeri.TaskFerry;
 				PRODUCT_NAME = TaskFerry;
 				SDKROOT = macosx;
+				SENTRY_DSN = "https://ca37c3934ccc01469dbfb8eefd314891@o4510771621789696.ingest.us.sentry.io/4512358195920896";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) SPARKLE_ENABLED";
 			};
 			name = "Release-Direct";
@@ -1055,6 +1074,14 @@
 				minimumVersion = 2.9.4;
 			};
 		};
+		B2606187B17383E1457E7595 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.32.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1062,6 +1089,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2D897C6D2EB27E5D8B15380F /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		E5A62B10239688D89438CC19 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B2606187B17383E1457E7595 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -17,6 +17,7 @@ enum AppPreferences {
     static let showsBridgeStatusInMenuBar = "shows-bridge-status-in-menu-bar"
     static let quickEntryHotKeyEnabled = "quick-entry-hot-key-enabled"
     static let notifiesWhenDue = "notifies-when-due"
+    static let sendsCrashReports = "sends-crash-reports"
     static let dateOnlyNotificationHour = "date-only-notification-hour"
     static let newReminderListID = "new-reminder-list-id"
 }
@@ -78,7 +79,9 @@ final class AppState {
     /// changing networks shouldn't raise a banner for one missed poll.
     private static let quietFailureLimit = 3
 
-    var mode: AppMode?
+    var mode: AppMode? {
+        didSet { onModeChange?(mode) }
+    }
     var snapshot = ReminderSnapshot.empty {
         didSet { rebuildDerived() }
     }
@@ -117,6 +120,7 @@ final class AppState {
     /// Called with each new authoritative snapshot, for due-date notifications.
     @ObservationIgnored var onSnapshotChange: ((ReminderSnapshot) -> Void)?
     @ObservationIgnored var onConnectionChange: (() -> Void)?
+    @ObservationIgnored var onModeChange: ((AppMode?) -> Void)?
 
     @ObservationIgnored private let connection: ReminderConnection
     @ObservationIgnored private var isStarted = false
@@ -891,6 +895,7 @@ final class AppState {
             // the token every paired Mac depends on.
             guard startGeneration == generation, self.mode == mode, !Task.isCancelled else { return }
             if error is CancellationError { return }
+            Diagnostics.report(.credentials, step: "load", error: error)
             setError(error.localizedDescription, source: .configuration)
             return
         }
@@ -901,6 +906,7 @@ final class AppState {
                 try await ensureBridgeToken()
             } catch {
                 guard startGeneration == generation, self.mode == mode, !Task.isCancelled else { return }
+                Diagnostics.report(.credentials, step: "create_bridge_token", error: error)
                 configureService(for: mode)
                 setError(error.localizedDescription, source: .configuration)
                 isStarted = true

@@ -74,6 +74,7 @@ final class BridgeServer {
                         self.restartAttempt = 0
                         self.state = .running(port)
                     case .failed(let error):
+                        Diagnostics.report(.bridgeListener, step: "listen", error: error)
                         self.state = .failed(error.localizedDescription)
                         self.scheduleRestart()
                     case .cancelled:
@@ -87,6 +88,7 @@ final class BridgeServer {
             self.listener = listener
             listener.start(queue: queue)
         } catch {
+            Diagnostics.report(.bridgeListener, step: "create", error: error)
             state = .failed(error.localizedDescription)
             scheduleRestart()
         }

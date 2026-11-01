@@ -7,6 +7,7 @@
 - Fetch EventKit objects by identifier for each mutation. Do not cache `EKReminder` or `EKCalendar` instances across requests.
 - Keep the bridge bound to loopback. Cloudflare Tunnel and Access are separate operational layers.
 - Never log or persist credentials outside Keychain.
+- Report failures through `Diagnostics`, with a stable area and step. Sentry stays in `CrashReporting.swift` and only gets an error's type and code, never its description or `userInfo`, and never reminder content, hostnames, or URLs. Don't turn on an SDK source that records URLs, screens, or free-form text.
 - Every local build is a demo with its own bundle ID, orange icon, and no URL scheme or Services entry, so it can't touch real reminders or the installed app. `TASK_FERRY_DEMO=0` opts out. Only Release-Direct, which `scripts/release.sh` archives, is the real app.
 - Run the core tests after substantive model, protocol, or service changes. They are intentionally host-independent because a `MenuBarExtra` app is not a reliable XCTest host.
 - Bridges and remote clients update independently. Keep the RPC protocol backward compatible: add optional fields only. When a remote must know that its bridge supports something, bump `RPCRequest.currentProtocolVersion`.

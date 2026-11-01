@@ -80,6 +80,8 @@ printf 'Exported app SDK: %s\n' "$BUILT_SDK"
 BUILT_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")"
 [[ "$BUILT_ID" == com.merimerimeri.TaskFerry ]] || { echo "Refusing to release a build identified as $BUILT_ID" >&2; exit 1; }
 /usr/libexec/PlistBuddy -c 'Print :CFBundleURLTypes' "$APP/Contents/Info.plist" >/dev/null || { echo "Refusing to release a development build" >&2; exit 1; }
+SENTRY_DSN="$(/usr/libexec/PlistBuddy -c 'Print :SENTRY_DSN' "$APP/Contents/Info.plist")"
+[[ "$SENTRY_DSN" == https://* ]] || { echo "Refusing to release a build with no Sentry DSN" >&2; exit 1; }
 HELPER="$APP/Contents/MacOS/cloudflared"
 [[ -x "$HELPER" ]] || { echo "The app is missing cloudflared" >&2; exit 1; }
 codesign --verify --strict --verbose=2 "$HELPER"

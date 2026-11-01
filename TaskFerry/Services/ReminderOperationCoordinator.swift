@@ -50,9 +50,15 @@ final class ReminderOperationCoordinator {
             }
 
             let outcome: Outcome
+            let finishTiming = Diagnostics.beginOperation(request.operation)
             do {
                 outcome = .success(try await requestService.execute(request))
+                finishTiming(true)
             } catch {
+                finishTiming(false)
+                if Diagnostics.isReminderFailureReportable(error) {
+                    Diagnostics.report(.reminderOperation, step: request.operation.rawValue, error: error)
+                }
                 outcome = .failure(error.localizedDescription)
             }
             guard requestGeneration == generation else { return .superseded }

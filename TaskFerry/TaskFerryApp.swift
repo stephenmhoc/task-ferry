@@ -257,6 +257,11 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // First, so a failure while syncing starts is caught. It costs no network on this path.
+        CrashReporting.start()
+        CrashReporting.setRole(state.mode)
+        state.onModeChange = { CrashReporting.setRole($0) }
+
         state.onDockBadgeChange = { DockBadgeManager.update(count: $0) }
         state.onSnapshotChange = { [weak self] _ in self?.notifications.reconcile() }
         state.onConnectionChange = { [weak self] in self?.notifications.resetConnection() }

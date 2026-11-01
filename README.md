@@ -178,12 +178,19 @@ The included GitHub Actions workflow publishes those four files when a `v*` tag 
 - `APPLE_ID_PASSWORD` (an app-specific password)
 - `APPLE_TEAM_ID`
 - `SPARKLE_PRIVATE_KEY`
+- `SENTRY_AUTH_TOKEN` (uploads debug symbols, so crashes can be read)
 
 Task Ferry includes its public Cloudflare OAuth client ID in the app build. The client uses `http://127.0.0.1:8789/cloudflare/oauth` as its redirect URI and these least-privilege scopes: `argotunnel.write` (Cloudflare Tunnel Write), `dns.write` (DNS Write), `zone-access.write` (zone-scoped Access Apps and Policies Write), `access-service-token.write` (Access Service Tokens Write), and `zone.read` (Zone Read). Task Ferry opens the authorization page in the user's browser, receives the one-time response on that loopback-only address, verifies PKCE and `state`, and then stops listening. It always includes exactly that scope set in its authorization request. Cloudflare requires domain verification before a client can be made public. The client ID is public configuration, not a secret.
 
 Sparkle's `generate_keys` tool stores the private update key in the login Keychain. Export it once with `generate_keys -x <temporary-file>`, copy it directly into the `SPARKLE_PRIVATE_KEY` repository secret, and remove the temporary file immediately.
 
 The release repository must be publicly readable so a corporate Mac can download the DMG and Sparkle appcast without GitHub credentials. The Developer ID certificate and notarization credentials are the only pieces that cannot be created from source code.
+
+## Crash reports
+
+Released builds send crashes, hangs, and handled failures to [Sentry](https://sentry.io) so bugs can be fixed. Turn this off in Settings → Send crash reports. Local builds never send anything.
+
+A report holds a stack trace, any exception text from the system, the app version and whether this Mac is a bridge or remote, macOS and hardware details, language and time zone, where the app is installed, and a random install ID. Sentry also sees the IP address a report comes from. Handled failures carry only an error type and code. Timing samples for reminder operations hold only the operation's name and duration. Reports don't include reminders, lists, Cloudflare hostnames, URLs, or credentials, and screenshots and network capture are off.
 
 ## License
 

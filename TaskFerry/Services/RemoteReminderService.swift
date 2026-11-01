@@ -63,7 +63,7 @@ final class RemoteReminderService: ReminderService {
         // A bridge that was rolled back stops advertising the newer protocol.
         bridgeProtocolVersion = decoded.protocolVersion ?? 1
         guard let snapshot = decoded.snapshot else {
-            throw ReminderServiceError.message("The bridge response did not include reminders.")
+            throw ReminderServiceError.unexpectedBridgeResponse("The bridge response did not include reminders.", status: 200)
         }
         return RPCResult(snapshot: snapshot, createdID: decoded.createdID)
     }
@@ -71,24 +71,28 @@ final class RemoteReminderService: ReminderService {
     static func decode(data: Data, response: URLResponse) throws -> ReminderSnapshot {
         let decoded = try decodeResponse(data: data, response: response)
         guard let snapshot = decoded.snapshot else {
-            throw ReminderServiceError.message("The bridge response did not include reminders.")
+            throw ReminderServiceError.unexpectedBridgeResponse("The bridge response did not include reminders.", status: 200)
         }
         return snapshot
     }
 
     private static func decodeResponse(data: Data, response: URLResponse) throws -> RPCResponse {
         guard let http = response as? HTTPURLResponse else {
-            throw ReminderServiceError.message("The bridge returned an invalid response.")
+            throw ReminderServiceError.unexpectedBridgeResponse("The bridge returned an invalid response.", status: 0)
         }
         let decoded = try? JSONDecoder().decode(RPCResponse.self, from: data)
         if let error = decoded?.error {
             throw ReminderServiceError.message(error)
         }
         guard http.statusCode == 200 else {
-            throw ReminderServiceError.message(message(forStatus: http.statusCode))
+            let message = message(forStatus: http.statusCode)
+            if [401, 403, 408, 502, 503, 504, 524, 530].contains(http.statusCode) {
+                throw ReminderServiceError.message(message)
+            }
+            throw ReminderServiceError.unexpectedBridgeResponse(message, status: http.statusCode)
         }
         guard let decoded else {
-            throw ReminderServiceError.message("The bridge returned invalid JSON.")
+            throw ReminderServiceError.unexpectedBridgeResponse("The bridge returned invalid JSON.", status: http.statusCode)
         }
         return decoded
     }

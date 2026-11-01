@@ -217,6 +217,7 @@ struct CloudflareSetupView: View {
             zones = try await CloudflareAPIClient().listActiveZones(accessToken: token)
             selectedZoneID = zones.first?.id ?? ""
         } catch {
+            Diagnostics.report(.cloudflareSetup, step: "authorize", error: error)
             await revokeAuthorization()
             message = error.localizedDescription
         }
@@ -258,6 +259,7 @@ struct CloudflareSetupView: View {
             await revokeAuthorization()
             dismiss()
         } catch {
+            Diagnostics.report(.cloudflareSetup, step: "provision", error: error)
             message = error.localizedDescription
             await revokeAuthorization()
         }
@@ -291,6 +293,7 @@ struct CloudflareSetupView: View {
             await revokeAuthorization()
             dismiss()
         } catch {
+            Diagnostics.report(.cloudflareSetup, step: "remove", error: error)
             message = error.localizedDescription
             state.startCloudflareConnector()
             await revokeAuthorization()

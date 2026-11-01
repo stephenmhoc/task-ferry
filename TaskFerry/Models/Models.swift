@@ -195,10 +195,13 @@ struct RPCResult: Equatable, Sendable {
 
 enum ReminderServiceError: LocalizedError {
     case message(String)
+    /// The bridge answered with something this build can't read, unlike a failure it explains
+    /// itself. These point at a bug or a protocol mismatch, so they're reported.
+    case unexpectedBridgeResponse(String, status: Int)
 
     var errorDescription: String? {
         switch self {
-        case .message(let message): message
+        case .message(let message), .unexpectedBridgeResponse(let message, _): message
         }
     }
 }

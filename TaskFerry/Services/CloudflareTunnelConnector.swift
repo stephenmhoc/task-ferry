@@ -111,6 +111,7 @@ final class CloudflareTunnelConnector {
             recordPID(process.processIdentifier)
         } catch {
             pipe.fileHandleForReading.readabilityHandler = nil
+            Diagnostics.report(.cloudflareConnector, step: "launch", error: error)
             updateState(.failed("The Cloudflare connector could not start."))
             scheduleRestart()
         }
@@ -180,6 +181,7 @@ final class CloudflareTunnelConnector {
         readinessTask = nil
         removePIDFile()
         guard shouldRestart else { return }
+        Diagnostics.report(.cloudflareConnector, step: "exit_\(status)")
         updateState(.failed("The Cloudflare connector stopped (status \(status)). Retrying…"))
         scheduleRestart()
     }

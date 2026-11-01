@@ -86,6 +86,17 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: scripts/release.sh "$VERSION"
 
+      # Before publishing, so a release can't reach anyone with crashes that can't be read.
+      - name: Upload debug symbols to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: merimerimeri-software
+          SENTRY_PROJECT: task-ferry
+        run: |
+          # Pinned, because the signing certificate's private key is on this machine.
+          npx --yes @sentry/cli@3.8.2 debug-files upload --include-sources --wait \
+            build/release/TaskFerry.xcarchive/dSYMs
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
