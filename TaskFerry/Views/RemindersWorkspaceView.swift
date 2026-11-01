@@ -164,7 +164,14 @@ struct RemindersWorkspaceView: View {
         .toolbar { ToolbarSpacer(.flexible) }
         .navigationTitle(displayTitle)
         .focusedSceneValue(\.workspaceActions, workspaceActions)
-        .onDisappear { persistCurrentEditor() }
+        .onDisappear {
+            persistCurrentEditor()
+            if let editingSession { state.openEdits[editingSession.id] = nil }
+        }
+        .onChange(of: editingSession?.id) { previous, _ in
+            if let previous { state.openEdits[previous] = nil }
+            if let editingSession { state.openEdits[editingSession.id] = editingSession }
+        }
         .onChange(of: storedSelection) { _, _ in
             selection = []
             endEditing()
@@ -759,8 +766,6 @@ struct RemindersWorkspaceView: View {
         selection = [id]
         editingSession = state.unsavedEdits.values.first(where: { $0.original.id == id })
             ?? state.reminder(for: id).map { ReminderEditSession($0, connectionRevision: state.connectionRevision) }
-        // Known to the app from the start, so quitting can save it.
-        if let editingSession { state.unsavedEdits[editingSession.id] = editingSession }
     }
 
     private func endEditing(restoreFocus: Bool = false) {

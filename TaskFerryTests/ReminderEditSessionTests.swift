@@ -105,6 +105,20 @@ final class ReminderEditSessionTests: XCTestCase {
         XCTAssertEqual(state.reminder(for: session.original.id)?.title, "Saved on the way out")
     }
 
+    func testTypingAfterASaveStillSaves() async {
+        let state = AppState(isDemo: true)
+        await state.refresh()
+        let session = ReminderEditSession(state.snapshot.reminders[0])
+        session.title = "First"
+        state.openEdits[session.id] = session
+        _ = await state.finishEdits()
+        session.title = "Second"
+        XCTAssertEqual(state.editsAtRisk.map(\.id), [session.id])
+        let saved = await state.saveEdit(session, undoManager: nil)
+        XCTAssertTrue(saved)
+        XCTAssertEqual(state.reminder(for: session.original.id)?.title, "Second")
+    }
+
     func testQuittingReportsAnEditThatCouldNotSave() async {
         let state = AppState(isDemo: true, demoScenario: .mutationFailure)
         await state.refresh()

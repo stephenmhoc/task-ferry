@@ -101,6 +101,9 @@ final class AppState {
     var dockBadgeScope: DockBadgeScope
     var navigationRequest: NavigationRequest?
     var unsavedEdits: [UUID: ReminderEditSession] = [:]
+    /// The edit each window has open, so quitting can save them. Unlike `unsavedEdits`, windows
+    /// never pick these up: each one edits its own copy.
+    @ObservationIgnored var openEdits: [UUID: ReminderEditSession] = [:]
     /// Reminders being completed, which show their tick straight away.
     private(set) var completingIDs: Set<String> = []
     /// Reminders whose completion hasn't been confirmed but which have left the lists.
@@ -416,6 +419,7 @@ final class AppState {
         let previousMode = mode
         for draft in unsavedEdits.values { draft.discard() }
         unsavedEdits.removeAll()
+        openEdits.removeAll()
         startGeneration += 1
         startTask?.cancel()
         startTask = nil
@@ -620,6 +624,8 @@ final class AppState {
     /// the row leaves shortly after. A reminder that fails to complete comes back. Returns the IDs
     /// that really completed.
     func completeNow(_ reminders: [ReminderRecord]) async -> [String] {
+        // Already on its way, from a click and the menu at once.
+        let reminders = reminders.filter { !completingIDs.contains($0.id) }
         let ids = Set(reminders.map(\.id))
         completingIDs.formUnion(ids)
         let leave = Task { @MainActor [weak self] in
@@ -693,6 +699,7 @@ final class AppState {
             snapshotCache.clear()
             for draft in unsavedEdits.values { draft.discard() }
             unsavedEdits.removeAll()
+            openEdits.removeAll()
             navigationRequest = nil
             preferredNewReminderListID = nil
             defaults.removeObject(forKey: AppPreferences.newReminderListID)

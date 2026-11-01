@@ -15,8 +15,10 @@ struct QuickEntryView: View {
     var initialListID: String? = nil
     var initialDue: QuickDueOption = .today
     var onFinish: (() -> Void)? = nil
-    /// Told about each change, so typing survives the panel closing when you click elsewhere.
-    var onTitleChange: ((String) -> Void)? = nil
+    /// Told about each change, so a draft survives the panel closing when you click elsewhere.
+    var onDraftChange: ((_ title: String, _ listID: String, _ due: QuickDueOption) -> Void)? = nil
+    /// The panel has to stay put while a reminder is on its way.
+    var onSubmittingChange: ((Bool) -> Void)? = nil
 
     @State private var title = ""
     @State private var listID = ""
@@ -122,7 +124,10 @@ struct QuickEntryView: View {
             selectDefaultListIfNeeded()
         }
         .onChange(of: state.snapshot.lists) { _, _ in selectDefaultListIfNeeded() }
-        .onChange(of: title) { _, title in onTitleChange?(title) }
+        .onChange(of: title) { reportDraft() }
+        .onChange(of: listID) { reportDraft() }
+        .onChange(of: due) { reportDraft() }
+        .onChange(of: isSubmitting) { _, isSubmitting in onSubmittingChange?(isSubmitting) }
         .onChange(of: state.preferredNewReminderListID) { _, _ in
             if initialListID == nil { listID = state.newReminderListID ?? "" }
         }
@@ -142,6 +147,7 @@ struct QuickEntryView: View {
                 notes: initialNotes
             )
             isSubmitting = false
+            onSubmittingChange?(false)
             guard outcome.succeeded else {
                 addError = state.errorMessage
                 titleFocused = true
@@ -159,6 +165,10 @@ struct QuickEntryView: View {
                 withAnimation(reduceMotion ? nil : .default) { confirmation = nil }
             }
         }
+    }
+
+    private func reportDraft() {
+        onDraftChange?(title, listID, due)
     }
 
     private func openMainWindow() {

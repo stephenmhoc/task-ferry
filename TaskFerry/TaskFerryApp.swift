@@ -111,6 +111,7 @@ private struct TaskFerryCommands: Commands {
             .keyboardShortcut("s", modifiers: [.control, .command])
             .disabled(actions == nil)
         }
+        ToolbarCommands()
 
         CommandGroup(after: .appInfo) {
             CheckForUpdatesButton()
@@ -293,10 +294,11 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
 
     /// An open edit is only saved when you leave it, so quitting has to wait for the bridge.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard !state.editsAtRisk.isEmpty else { return .terminateNow }
+        guard !state.editsAtRisk.isEmpty || !state.completingIDs.isEmpty else { return .terminateNow }
         Task { @MainActor in
             let unsaved = await state.finishEdits()
-            sender.reply(toApplicationShouldTerminate: unsaved.isEmpty || confirmQuit(losing: unsaved))
+            let isSafe = unsaved.isEmpty && state.completingIDs.isEmpty
+            sender.reply(toApplicationShouldTerminate: isSafe || confirmQuit(losing: unsaved))
         }
         return .terminateLater
     }
@@ -304,10 +306,13 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
     private func confirmQuit(losing edits: [ReminderEditSession]) -> Bool {
         NSApp.activate()
         let alert = NSAlert()
-        alert.messageText = edits.count == 1
-            ? String(localized: "“\(edits[0].title)” couldn’t be saved")
-            : String(localized: "\(edits.count) edits couldn’t be saved")
-        alert.informativeText = String(localized: "Task Ferry can’t reach your bridge. If you quit now, these changes will be lost.")
+        switch edits.count {
+        case 0: alert.messageText = String(localized: "Reminders are still being completed")
+        case 1: alert.messageText = String(localized: "“\(edits[0].title)” couldn’t be saved")
+        default: alert.messageText = String(localized: "\(edits.count) edits couldn’t be saved")
+        }
+        let reason = edits.count == 1 ? edits[0].error : nil
+        alert.informativeText = reason ?? String(localized: "Task Ferry can’t reach your bridge. If you quit now, these changes will be lost.")
         alert.addButton(withTitle: String(localized: "Keep Editing"))
         alert.addButton(withTitle: String(localized: "Quit Anyway")).hasDestructiveAction = true
         return alert.runModal() == .alertSecondButtonReturn

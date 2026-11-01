@@ -19,6 +19,12 @@ final class ReminderEditSession: Identifiable {
     private(set) var phase = Phase.editing
     private(set) var error: String?
     @ObservationIgnored private var saveTask: Task<Bool, Never>?
+    /// What the bridge last accepted. An editor can stay open after a save, when you choose to keep
+    /// editing rather than quit, so anything typed after it still has to go through.
+    @ObservationIgnored private var savedValue: ReminderRecord?
+
+    /// True when there's something a save would still have to send.
+    var hasUnsavedChanges: Bool { phase != .discarded && updated != (savedValue ?? original) }
 
     init(_ reminder: ReminderRecord, connectionRevision: Int? = nil) {
         original = reminder
@@ -50,7 +56,6 @@ final class ReminderEditSession: Identifiable {
     /// Coalesces Return, disappearance and completion into one mutation. A failure is retryable.
     func commit(_ save: @escaping @MainActor (ReminderRecord) async -> String?) async -> Bool {
         if let saveTask { return await saveTask.value }
-        if phase == .saved { return true }
         if phase == .discarded { return false }
         let value = updated
         guard !value.title.isEmpty, !value.listID.isEmpty else {
@@ -58,7 +63,7 @@ final class ReminderEditSession: Identifiable {
             phase = .failed
             return false
         }
-        guard value != original else {
+        guard value != (savedValue ?? original) else {
             phase = .saved
             return true
         }
@@ -70,6 +75,7 @@ final class ReminderEditSession: Identifiable {
                 self.phase = .failed
                 return false
             }
+            self.savedValue = value
             self.phase = .saved
             return true
         }
@@ -82,7 +88,7 @@ final class ReminderEditSession: Identifiable {
 
 extension AppState {
     func saveEditWhenLeaving(_ session: ReminderEditSession, undoManager: UndoManager?) {
-        guard mode == .remote, session.phase == .editing || session.phase == .saving else { return }
+        guard mode == .remote, session.phase != .failed, session.phase != .discarded else { return }
         // Retain synchronously so immediately reopening the row joins this same draft/save.
         unsavedEdits[session.id] = session
         Task { await saveEdit(session, undoManager: undoManager) }
@@ -116,7 +122,8 @@ extension AppState {
     /// Edits that quitting now would lose, including ones that failed to save earlier.
     var editsAtRisk: [ReminderEditSession] {
         guard mode == .remote else { return [] }
-        return unsavedEdits.values.filter { $0.phase != .saved && $0.phase != .discarded }
+        let edits: [UUID: ReminderEditSession] = unsavedEdits.merging(openEdits) { kept, _ in kept }
+        return edits.values.filter { $0.hasUnsavedChanges }
     }
 
     /// Saves everything before the app quits, giving up after `timeout` because an unreachable
@@ -129,7 +136,7 @@ extension AppState {
             finished = true
         }
         let deadline = ContinuousClock.now + timeout
-        while !finished, ContinuousClock.now < deadline {
+        while !finished || !completingIDs.isEmpty, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(50))
         }
         return editsAtRisk

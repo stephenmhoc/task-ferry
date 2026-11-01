@@ -11,6 +11,9 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
     private var panel: QuickEntryPanel?
     private weak var originatingWindow: NSWindow?
     private var draft: Draft?
+    /// The panel stays until the bridge answers, so nothing can be sent twice and a failure has
+    /// somewhere to show.
+    private var isSubmitting = false
 
     private struct Draft {
         var title: String
@@ -21,7 +24,7 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
 
     func toggle(state: AppState) {
         if panel?.isVisible == true {
-            close()
+            if !isSubmitting { close() }
         } else {
             show(state: state)
         }
@@ -37,6 +40,10 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
     ) {
         guard state.mode == .remote else {
             WindowRouter.shared.showMainWindow()
+            return
+        }
+        if isSubmitting {
+            panel?.makeKeyAndOrderFront(nil)
             return
         }
         close(restoreFocus: false)
@@ -77,13 +84,10 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
             initialListID: opening.listID,
             initialDue: opening.due,
             onFinish: { [weak self] in self?.finish() },
-            onTitleChange: { [weak self] title in
-                guard let self else { return }
-                if self.draft == nil {
-                    self.draft = opening
-                }
-                self.draft?.title = title
-            }
+            onDraftChange: { [weak self] title, listID, due in
+                self?.draft = title.isEmpty ? nil : Draft(title: title, notes: opening.notes, listID: listID, due: due)
+            },
+            onSubmittingChange: { [weak self] in self?.isSubmitting = $0 }
         ))
         panel.contentView = hostingView
         panel.setContentSize(hostingView.fittingSize)
@@ -94,6 +98,7 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
 
     /// Esc or a finished reminder: there's nothing to come back to.
     private func finish() {
+        guard !isSubmitting else { return }
         draft = nil
         close()
     }
@@ -114,6 +119,7 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
     }
 
     func windowDidResignKey(_ notification: Notification) {
+        guard !isSubmitting else { return }
         close(restoreFocus: false)
     }
 
