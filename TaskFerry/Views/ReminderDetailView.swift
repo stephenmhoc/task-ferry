@@ -41,7 +41,7 @@ struct InlineReminderEditor: View {
                 VStack(alignment: .leading, spacing: 8) {
                     TextField("Title", text: $session.title, axis: .vertical)
                         .textFieldStyle(.plain)
-                        .foregroundColor(Color(nsColor: .labelColor))
+                        .foregroundStyle(Color(nsColor: .labelColor))
                         .lineLimit(1...4)
                         .focused($focusedField, equals: .title)
                         .onSubmit(onSave)
@@ -53,7 +53,7 @@ struct InlineReminderEditor: View {
                         TextEditor(text: $session.notes)
                             .font(.callout)
                             .scrollContentBackground(.hidden)
-                            .frame(height: 44)
+                            .frame(height: 60)
                             .padding(5)
                             .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
                             .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(Color.secondary.opacity(0.2)) }
@@ -73,19 +73,16 @@ struct InlineReminderEditor: View {
             }
             if session.phase == .saving { ProgressView("Saving…").controlSize(.small) }
             HStack {
+                Button("Delete…", role: .destructive, action: onDelete)
                 ReminderLinkMenu(urls: ReminderLinks.urls(title: session.title, notes: session.notes, url: session.original.url))
                 Spacer()
-                Button("Delete", role: .destructive, action: onDelete)
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
-                    .padding(.trailing, 8)
                 Button("Cancel", action: onCancel)
-                    .buttonStyle(.bordered)
-                Button("Save", action: onSave)
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.return, modifiers: .command)
+                Button(action: onSave) {
+                    Text("Save").padding(.horizontal, 12)
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.return, modifiers: .command)
             }
-            .controlSize(.small)
         }
         // List selection changes `.primary` to white; our editor has its own neutral surface.
         .foregroundStyle(Color(nsColor: .labelColor))
@@ -116,34 +113,26 @@ struct InlineReminderEditor: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("List")
-                Menu {
+                Picker("List", selection: $session.listID) {
                     ForEach(state.snapshot.lists) { list in
-                        Button {
-                            session.listID = list.id
-                        } label: {
-                            if list.id == session.listID {
-                                Label(list.title, systemImage: "checkmark")
-                            } else {
-                                Text(list.title)
-                            }
+                        Label {
+                            Text(list.title)
+                        } icon: {
+                            ListColorDot.image(hex: list.colorHex)
                         }
+                        .tag(list.id)
                     }
-                } label: {
-                    metadataControlContent(state.list(for: session.listID)?.title ?? String(localized: "Choose List"), symbol: "list.bullet", showsChevron: false)
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.visible)
+                .labelsHidden()
+                .pickerStyle(.menu)
                 .fixedSize(horizontal: true, vertical: false)
-                .modifier(MetadataControlSurface())
                 .accessibilityLabel("List")
-                .accessibilityValue(Text(state.list(for: session.listID)?.title ?? String(localized: "Choose List")))
                 Spacer(minLength: 0)
             }
             dateControls
             timeControls
         }
         .font(.callout)
-        .controlSize(.small)
     }
 
     private var dateControls: some View {
@@ -155,7 +144,7 @@ struct InlineReminderEditor: View {
                 } label: {
                     metadataControl(session.dueDate.formatted(.dateTime.month(.abbreviated).day().year()), symbol: "calendar")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bordered)
                 .accessibilityLabel("Due date")
                 .accessibilityValue(Text(session.dueDate, format: .dateTime.month(.abbreviated).day().year()))
                 .popover(isPresented: pickerPresented(.date), arrowEdge: .bottom) {
@@ -182,7 +171,7 @@ struct InlineReminderEditor: View {
                     } label: {
                         metadataControl(session.dueDate.formatted(date: .omitted, time: .shortened), symbol: "clock")
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bordered)
                     .accessibilityLabel("Due time")
                     .accessibilityValue(Text(session.dueDate, format: .dateTime.hour().minute()))
                     .popover(isPresented: pickerPresented(.time), arrowEdge: .bottom) {
@@ -224,33 +213,11 @@ struct InlineReminderEditor: View {
     }
 
     private func metadataControl(_ value: String, symbol: String) -> some View {
-        metadataControlContent(value, symbol: symbol)
-            .modifier(MetadataControlSurface())
-    }
-
-    private func metadataControlContent(_ value: String, symbol: String, showsChevron: Bool = true) -> some View {
         HStack(spacing: 6) {
             Image(systemName: symbol)
                 .foregroundStyle(.secondary)
             Text(value)
                 .lineLimit(1)
-            if showsChevron {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
         }
-        .foregroundStyle(Color(nsColor: .labelColor))
-    }
-
-}
-
-private struct MetadataControlSurface: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
-            .background(Color.accentColor.opacity(0.045), in: RoundedRectangle(cornerRadius: 6))
-            .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(Color.accentColor.opacity(0.22)) }
     }
 }

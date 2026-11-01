@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Network
 import Observation
+import SwiftUI
 
 enum AppPreferences {
     static let mode = "mode"
@@ -100,6 +101,12 @@ final class AppState {
     var dockBadgeScope: DockBadgeScope
     var navigationRequest: NavigationRequest?
     var unsavedEdits: [UUID: ReminderEditSession] = [:]
+    /// Reminders being completed, which show their tick straight away.
+    private(set) var completingIDs: Set<String> = []
+    /// Reminders whose completion hasn't been confirmed but which have left the lists.
+    private var hiddenCompletedIDs: Set<String> = [] {
+        didSet { rebuildDerived() }
+    }
     private(set) var preferredNewReminderListID: String?
 
     /// Called whenever the Dock badge count may have changed. The app layer owns the Dock tile.
@@ -200,7 +207,7 @@ final class AppState {
         snapshotCache: SnapshotCache? = nil,
         automaticRefreshInterval: Duration = .seconds(15)
     ) {
-        let demoMode = isDemo ?? (ProcessInfo.processInfo.environment["TASK_FERRY_DEMO"] == "1")
+        let demoMode = isDemo ?? TaskFerryRuntime.isDemo
         self.isDemo = demoMode
         self.demoScenario = demoScenario ?? (demoMode ? .current : .standard)
         let defaults = demoMode
@@ -328,7 +335,9 @@ final class AppState {
         let calendar = Calendar.autoupdatingCurrent
         let now = max(Date(), currentDay)
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) ?? now
-        let sorted = snapshot.reminders.sorted(by: Self.sortReminders)
+        let sorted = snapshot.reminders
+            .filter { !hiddenCompletedIDs.contains($0.id) }
+            .sorted(by: Self.sortReminders)
         var result = DerivedReminders(all: sorted)
         for reminder in sorted {
             result.byList[reminder.listID, default: []].append(reminder)
@@ -605,6 +614,27 @@ final class AppState {
     @discardableResult
     func complete(_ reminder: ReminderRecord) async -> Bool {
         await setCompleted(reminderID: reminder.id, true)
+    }
+
+    /// Completes reminders without making anyone wait for the bridge: the tick appears at once and
+    /// the row leaves shortly after. A reminder that fails to complete comes back. Returns the IDs
+    /// that really completed.
+    func completeNow(_ reminders: [ReminderRecord]) async -> [String] {
+        let ids = Set(reminders.map(\.id))
+        completingIDs.formUnion(ids)
+        let leave = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(260))
+            guard !Task.isCancelled, let self else { return }
+            withAnimation(Self.listAnimation) { self.hiddenCompletedIDs.formUnion(ids) }
+        }
+        var completed: [String] = []
+        for reminder in reminders where await complete(reminder) {
+            completed.append(reminder.id)
+        }
+        leave.cancel()
+        withAnimation(Self.listAnimation) { hiddenCompletedIDs.subtract(ids) }
+        completingIDs.subtract(ids)
+        return completed
     }
 
     @discardableResult
@@ -979,7 +1009,8 @@ final class AppState {
         switch outcome {
         case .success(let result):
             if snapshot != result.snapshot {
-                snapshot = result.snapshot
+                // Changes the user just made should move on screen. Background syncs just land.
+                withAnimation(interactive ? Self.listAnimation : nil) { snapshot = result.snapshot }
             }
             hasLoadedSnapshot = true
             isShowingCachedSnapshot = false
@@ -1021,6 +1052,10 @@ final class AppState {
     private func clearError() {
         errorMessage = nil
         errorSource = nil
+    }
+
+    private static var listAnimation: Animation? {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .easeInOut(duration: 0.22)
     }
 
     nonisolated private static func sortReminders(_ lhs: ReminderRecord, _ rhs: ReminderRecord) -> Bool {

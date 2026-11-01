@@ -1,6 +1,20 @@
 import AppKit
 import SwiftUI
 
+enum WorkspaceSize {
+    static let width: CGFloat = 920
+    static let height: CGFloat = 640
+    /// The sidebar's 220 and the reminder column's 380, with room for its toolbar.
+    static let minWidth: CGFloat = 620
+
+    @MainActor static func apply() {
+        guard let window = NSApp.keyWindow, window.frame.width < width else { return }
+        var frame = window.frameRect(forContentRect: NSRect(x: 0, y: 0, width: width, height: height))
+        frame.origin = NSPoint(x: window.frame.midX - frame.width / 2, y: window.frame.maxY - frame.height)
+        window.setFrame(frame, display: true, animate: !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+    }
+}
+
 struct MenuRootView: View {
     @Bindable var state: AppState
 
@@ -15,10 +29,14 @@ struct MenuRootView: View {
                     .frame(minWidth: 420, minHeight: 480)
             case .remote:
                 RemindersWorkspaceView(state: state)
-                    .frame(minWidth: 580, minHeight: 420)
+                    .frame(minWidth: WorkspaceSize.minWidth, minHeight: 420)
             }
         }
         .background(MainWindowRegistrar())
+        .onChange(of: state.mode) { previous, mode in
+            // The window opened at the small setup size, and defaultSize only applies on opening.
+            if previous == nil, mode == .remote { WorkspaceSize.apply() }
+        }
     }
 }
 
@@ -41,23 +59,24 @@ private struct SetupView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(24)
 
-            List {
-                Section("This Mac should") {
-                    modeButton(
-                        title: "Connect to my Mac mini",
-                        subtitle: "View and manage reminders from anywhere",
-                        symbol: "laptopcomputer.and.iphone",
-                        mode: .remote
-                    )
-                    modeButton(
-                        title: "Share its reminders",
-                        subtitle: "Run the private bridge on this Mac",
-                        symbol: "antenna.radiowaves.left.and.right",
-                        mode: .bridge
-                    )
-                }
+            VStack(spacing: 10) {
+                modeButton(
+                    title: "Use reminders from another Mac",
+                    subtitle: "View and manage them here, from anywhere",
+                    symbol: "laptopcomputer",
+                    mode: .remote
+                )
+                modeButton(
+                    title: "Share this Mac’s reminders",
+                    subtitle: "Run the private bridge here",
+                    symbol: "antenna.radiowaves.left.and.right",
+                    mode: .bridge
+                )
             }
-            .listStyle(.inset)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+
+            Spacer(minLength: 0)
         }
     }
 
@@ -67,22 +86,21 @@ private struct SetupView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: symbol)
-                    .font(.title3)
-                    .frame(width: 28)
+                    .font(.title2)
+                    .frame(width: 32)
                     .foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).fontWeight(.medium)
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                    Text(title).font(.body.weight(.medium))
+                    Text(subtitle).font(.callout).foregroundStyle(.secondary)
                 }
-                Spacer()
-                Image(systemName: "chevron.forward")
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
+                Spacer(minLength: 0)
             }
-            .padding(.vertical, 5)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glass)
         .accessibilityHint(subtitle)
     }
 }
@@ -299,7 +317,11 @@ struct ErrorBanner: View {
                 SettingsLink { Text("Open Settings…") }
                     .controlSize(.small)
             }
-            Button(action: dismiss) { Image(systemName: "xmark") }
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
+            }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss error")
         }

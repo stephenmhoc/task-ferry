@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "Links in reminder titles and notes are now clickable. Displays links stored in Apple Reminders' URL field, adds Open Link menus for long reminders and editing, and makes dedicated URLs searchable. Includes accessible link actions. Supports macOS 14 and newer."
+      RELEASE_NOTES: "A native Mac redesign: a real sidebar that slides smoothly, glass buttons that stay beside the window controls, and a quieter header with a status footer. Completing a reminder now responds instantly. Quitting saves an open edit, or warns you if it can't. Quick Entry keeps your text when you click away. The Quick Entry shortcut is now Control-Shift-Space. Requires macOS 26 or newer."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:

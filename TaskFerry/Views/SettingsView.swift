@@ -242,6 +242,8 @@ private struct ConnectionSettingsPane: View {
                             connectionCodeRevealed.toggle()
                         } label: {
                             Image(systemName: connectionCodeRevealed ? "eye.slash" : "eye")
+                                .frame(width: 26, height: 26)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
                         .accessibilityLabel(connectionCodeRevealed ? "Hide connection code" : "Show connection code")
@@ -420,6 +422,8 @@ private struct BridgeSettingsPane: View {
                             tokenRevealed.toggle()
                         } label: {
                             Image(systemName: tokenRevealed ? "eye.slash" : "eye")
+                                .frame(width: 26, height: 26)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
                         .accessibilityLabel(tokenRevealed ? "Hide bridge token" : "Show bridge token")

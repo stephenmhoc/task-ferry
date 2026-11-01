@@ -61,19 +61,21 @@ struct ListEditorSheet: View {
 
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Color")
-                    HStack(spacing: 6) {
+                    HStack(spacing: 2) {
                         ForEach(TaskFerryPalette.listColors, id: \.hex) { option in
                             Button {
                                 colorHex = option.hex
                             } label: {
                                 Circle()
                                     .fill(Color(hex: option.hex))
-                                    .frame(width: 18, height: 18)
+                                    .frame(width: 20, height: 20)
                                     .overlay {
                                         if colorHex == option.hex {
                                             Circle().strokeBorder(.primary, lineWidth: 2).padding(-3)
                                         }
                                     }
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .help(Text(option.name))
@@ -104,7 +106,10 @@ struct ListEditorSheet: View {
                     .keyboardShortcut(.cancelAction)
                     .disabled(isSaving || isDeleting)
 
-                Button(isSaving ? "Saving…" : (context.list == nil ? "Create" : "Save"), action: save)
+                Button(action: save) {
+                    Text(isSaving ? "Saving…" : (context.list == nil ? "Create" : "Save"))
+                        .padding(.horizontal, 12)
+                }
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
                     .disabled(isSaving || isDeleting || title.trimmed.isEmpty)

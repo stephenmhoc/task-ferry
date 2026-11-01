@@ -77,6 +77,8 @@ if [[ ! "$BUILT_SDK" =~ ^macosx([0-9]+)[.] ]] || (( ${BASH_REMATCH[1]} < 27 )); 
   exit 1
 fi
 printf 'Exported app SDK: %s\n' "$BUILT_SDK"
+BUILT_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")"
+[[ "$BUILT_ID" == com.merimerimeri.TaskFerry ]] || { echo "Refusing to release a build identified as $BUILT_ID" >&2; exit 1; }
 HELPER="$APP/Contents/MacOS/cloudflared"
 [[ -x "$HELPER" ]] || { echo "The app is missing cloudflared" >&2; exit 1; }
 codesign --verify --strict --verbose=2 "$HELPER"
@@ -122,7 +124,7 @@ cat > "$BUILD_ROOT/appcast.xml" <<EOF
       <description><![CDATA[$NOTES]]></description>
       <pubDate>$(date -u +"%a, %d %b %Y %H:%M:%S +0000")</pubDate>
       <enclosure url="https://github.com/$REPOSITORY/releases/download/v$VERSION/TaskFerry-$VERSION.zip" sparkle:edSignature="$SIGNATURE" length="$SIZE" type="application/octet-stream" />
-      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
     </item>
   </channel>
 </rss>

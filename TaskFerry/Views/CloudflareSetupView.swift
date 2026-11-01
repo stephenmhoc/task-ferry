@@ -144,15 +144,19 @@ struct CloudflareSetupView: View {
             }
             .disabled(isWorking)
         } else if accessToken == nil {
-            Button(isWorking ? "Waiting for Browser…" : "Continue in Browser") {
+            Button {
                 run { await connect() }
+            } label: {
+                Text(isWorking ? "Waiting for Browser…" : "Continue in Browser").padding(.horizontal, 12)
             }
             .buttonStyle(.borderedProminent)
             .disabled(isWorking)
         } else {
-            Button(isWorking ? "Setting Up…" : "Create Private Connection") {
+            Button {
                 // Not tied to Cancel: creating resources and rolling back must finish.
                 Task { await provision() }
+            } label: {
+                Text(isWorking ? "Setting Up…" : "Create Private Connection").padding(.horizontal, 12)
             }
             .buttonStyle(.borderedProminent)
             .disabled(isWorking || selectedZone == nil)

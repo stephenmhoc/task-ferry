@@ -5,7 +5,7 @@ A small, private Mac app that ferries Apple Reminders between your personal and 
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/task-ferry-main.png" alt="Task Ferry showing today's reminders" width="400">
+  <img src="docs/screenshots/task-ferry-main.png" alt="Task Ferry showing today's reminders" width="560">
   <br>
   <img src="docs/screenshots/task-ferry-quick-entry.png" alt="Task Ferry menu-bar quick entry" width="340">
 </p>
@@ -38,7 +38,7 @@ Mutations carry a request ID. If a response is lost in transit, the remote retri
 
 ## Build and test
 
-Requirements: Xcode 27 or newer and [XcodeGen](https://github.com/yonaskolb/XcodeGen). The built app supports macOS 14 or newer. Run `scripts/fetch-cloudflared.sh` before a local app build to prepare the pinned, checksum-verified universal connector; release builds do this automatically.
+Requirements: Xcode 27 or newer and [XcodeGen](https://github.com/yonaskolb/XcodeGen). The built app needs macOS 26 or newer. Run `scripts/fetch-cloudflared.sh` before a local app build to prepare the pinned, checksum-verified universal connector; release builds do this automatically.
 
 `xcodegen generate` fails until the connector has been fetched. This is deliberate, so a build can never silently ship without remote access.
 
@@ -70,10 +70,10 @@ This runs real TCP requests without accessing EventKit, Keychain, or Cloudflare,
 For the safe sample UI used during development:
 
 ```sh
-TASK_FERRY_DEMO=1 .derivedData/Build/Products/Debug/TaskFerry.app/Contents/MacOS/TaskFerry
+open .derivedData/Build/Products/Debug/TaskFerry.app
 ```
 
-Demo mode uses in-memory reminders and isolated preferences, including after changing roles. It does not access Keychain, request Reminders or notification permission, register login items or global shortcuts, register Services, start listeners/connectors, provision Cloudflare, or start Sparkle. Set `TASK_FERRY_DEMO_ROLE=bridge` to verify the bridge UI safely.
+Local builds are always demos unless started with `TASK_FERRY_DEMO=0`, and they have an orange icon so you can tell them from the real app. Demo mode uses in-memory reminders and isolated preferences, including after changing roles. It does not access Keychain, request Reminders or notification permission, register login items or global shortcuts, register Services, start listeners/connectors, provision Cloudflare, or start Sparkle. Set `TASK_FERRY_DEMO_ROLE=bridge` to verify the bridge UI safely.
 
 Use `TASK_FERRY_DEMO_SCENARIO` to exercise `unconfigured`, `empty`, `loading`, `offline`, `mutation-failure`, `long-content`, `provisioned-bridge`, or `unfinished-cleanup` (the default is `standard`). The mutation-failure scenario rejects the first change and accepts retries. The offline scenario shows an in-memory cached snapshot. Add `TASK_FERRY_DEMO_APPEARANCE=dark` for dark UI verification and `TASK_FERRY_DEMO_SIZE=compact` for a minimum-width workspace without changing macOS settings. Failed edit drafts remain available for Review, Retry, Copy Draft, or Discard while the app runs; they are not written to disk.
 
@@ -130,7 +130,7 @@ Task Ferry behaves like Reminders:
 | Undo / Redo (complete, edit, move, reschedule) | ⌘Z / ⇧⌘Z |
 | Find | ⌘F |
 | Refresh | ⌘R |
-| Quick Entry from anywhere (optional, in Settings) | ⌃⌥Space |
+| Quick Entry from anywhere (optional, in Settings) | ⌃⇧Space |
 
 - **Selecting and moving:** select several reminders with ⌘-click or ⇧-click. Drag them onto a list to move them, or onto Today or Tomorrow to reschedule them. Copy and paste them as text. Pasting or dropping text creates one reminder per line.
 - **Quick Entry:** in the menu bar, in the Dock menu, and in every app's **Services** menu as **New Task Ferry Reminder**.
@@ -168,7 +168,7 @@ scripts/release.sh 0.1.0
 
 The script uses the `TaskFerry` notarization profile and the Sparkle private key in the login Keychain. It produces a versioned DMG, a stable `TaskFerry.dmg`, an update ZIP, and `appcast.xml` under `build/release/`.
 
-CI and releases use the `xcode-27` runner with Xcode 27.0 explicitly selected. Releases reject Xcode or macOS SDK versions older than 27 and verify the exported app's SDK before notarization. Building against the current SDK enables the current native system appearance on Golden Gate; the macOS 14 deployment target remains the minimum supported OS.
+CI and releases use the `xcode-27` runner with Xcode 27.0 explicitly selected. Releases reject Xcode or macOS SDK versions older than 27 and verify the exported app's SDK before notarization. Building against the current SDK enables the current native system appearance on Golden Gate; macOS 26 is the minimum supported OS.
 
 The included GitHub Actions workflow publishes those four files when a `v*` tag is pushed. It requires these repository secrets:
 

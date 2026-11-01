@@ -6,14 +6,14 @@ configs:
 options:
   bundleIdPrefix: com.merimerimeri
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "26.0"
 settings:
   base:
     SWIFT_VERSION: "5.0"
     SWIFT_STRICT_CONCURRENCY: complete
     SWIFT_TREAT_WARNINGS_AS_ERRORS: true
     CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.1.20
+    MARKETING_VERSION: 0.2.0
     CODE_SIGN_STYLE: Automatic
     TASK_FERRY_CLOUDFLARE_OAUTH_CLIENT_ID: "fcb358ecbd170213ce612c27de3b4cad"
 packages:
@@ -38,17 +38,21 @@ targets:
       - package: Sparkle
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.merimerimeri.TaskFerry
+        # Every local build gets its own identity, its own icon, no URL scheme or Services entry,
+        # and demo data, so it can never touch the installed app or real reminders. Only
+        # Release-Direct, which scripts/release.sh archives, is the real app.
+        PRODUCT_BUNDLE_IDENTIFIER: com.merimerimeri.TaskFerry.Debug
         PRODUCT_NAME: TaskFerry
-        INFOPLIST_FILE: TaskFerry/Info.plist
+        INFOPLIST_FILE: TaskFerry/Info-Dev.plist
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) TASK_FERRY_DEV"
         CODE_SIGN_ENTITLEMENTS: TaskFerry/TaskFerry.entitlements
         GENERATE_INFOPLIST_FILE: false
         ENABLE_HARDENED_RUNTIME: true
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon-Dev
       configs:
-        Debug:
-          PRODUCT_BUNDLE_IDENTIFIER: com.merimerimeri.TaskFerry.Debug
         Release-Direct:
+          PRODUCT_BUNDLE_IDENTIFIER: com.merimerimeri.TaskFerry
+          ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
           INFOPLIST_FILE: TaskFerry/Info-Direct.plist
           CODE_SIGN_ENTITLEMENTS: TaskFerry/TaskFerry-Direct.entitlements
           CODE_SIGN_INJECT_BASE_ENTITLEMENTS: false
@@ -68,6 +72,20 @@ targets:
         config: Release-Direct
       testTargets:
         - TaskFerryTests
+  # One journey through the real app on demo data. Separate from TaskFerryTests, which are
+  # host-independent, because it needs a window server. Run it with scripts/test-ui.sh.
+  TaskFerryUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - TaskFerryUITests
+    dependencies:
+      - target: TaskFerry
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.merimerimeri.TaskFerryUITests
+        GENERATE_INFOPLIST_FILE: true
+        TEST_TARGET_NAME: TaskFerry
   TaskFerryTests:
     type: bundle.unit-test
     platform: macOS
@@ -105,3 +123,13 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.merimerimeri.TaskFerryTests
         GENERATE_INFOPLIST_FILE: true
         TEST_HOST: ""
+schemes:
+  TaskFerryUI:
+    build:
+      targets:
+        TaskFerry: all
+        TaskFerryUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - TaskFerryUITests

@@ -19,7 +19,7 @@ struct TaskFerryApp: App {
                 .defaultAppStorage(state.defaults)
                 .preferredColorScheme(state.isDemo && ProcessInfo.processInfo.environment["TASK_FERRY_DEMO_APPEARANCE"] == "dark" ? .dark : nil)
         }
-        .defaultSize(width: state.mode == .remote ? 920 : 520, height: state.mode == .remote ? 640 : 480)
+        .defaultSize(width: state.mode == .remote ? WorkspaceSize.width : 520, height: state.mode == .remote ? WorkspaceSize.height : 480)
         .windowResizability(.contentMinSize)
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
@@ -111,7 +111,6 @@ private struct TaskFerryCommands: Commands {
             .keyboardShortcut("s", modifiers: [.control, .command])
             .disabled(actions == nil)
         }
-        ToolbarCommands()
 
         CommandGroup(after: .appInfo) {
             CheckForUpdatesButton()
@@ -157,7 +156,7 @@ private struct TaskFerryCommands: Commands {
             .disabled(actions == nil)
         }
 
-        CommandGroup(before: .toolbar) {
+        CommandGroup(after: .sidebar) {
             Button("Today") { actions?.show(.today) }
                 .keyboardShortcut("1", modifiers: .command)
                 .disabled(actions == nil)
@@ -292,6 +291,28 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// An open edit is only saved when you leave it, so quitting has to wait for the bridge.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !state.editsAtRisk.isEmpty else { return .terminateNow }
+        Task { @MainActor in
+            let unsaved = await state.finishEdits()
+            sender.reply(toApplicationShouldTerminate: unsaved.isEmpty || confirmQuit(losing: unsaved))
+        }
+        return .terminateLater
+    }
+
+    private func confirmQuit(losing edits: [ReminderEditSession]) -> Bool {
+        NSApp.activate()
+        let alert = NSAlert()
+        alert.messageText = edits.count == 1
+            ? String(localized: "“\(edits[0].title)” couldn’t be saved")
+            : String(localized: "\(edits.count) edits couldn’t be saved")
+        alert.informativeText = String(localized: "Task Ferry can’t reach your bridge. If you quit now, these changes will be lost.")
+        alert.addButton(withTitle: String(localized: "Keep Editing"))
+        alert.addButton(withTitle: String(localized: "Quit Anyway")).hasDestructiveAction = true
+        return alert.runModal() == .alertSecondButtonReturn
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         state.prepareForTermination()
     }
@@ -372,7 +393,7 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var shouldRunHidden: Bool {
-        guard ProcessInfo.processInfo.environment["TASK_FERRY_DEMO"] != "1" else { return false }
+        guard !TaskFerryRuntime.isDemo else { return false }
         return UserDefaults.standard.string(forKey: AppPreferences.mode) == AppMode.bridge.rawValue
             && UserDefaults.standard.bool(forKey: AppPreferences.runsInBackground)
     }

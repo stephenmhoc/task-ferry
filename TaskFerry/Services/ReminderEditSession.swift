@@ -113,6 +113,28 @@ extension AppState {
         return succeeded
     }
 
+    /// Edits that quitting now would lose, including ones that failed to save earlier.
+    var editsAtRisk: [ReminderEditSession] {
+        guard mode == .remote else { return [] }
+        return unsavedEdits.values.filter { $0.phase != .saved && $0.phase != .discarded }
+    }
+
+    /// Saves everything before the app quits, giving up after `timeout` because an unreachable
+    /// bridge mustn't hold up quitting. Returns the edits still unsaved.
+    func finishEdits(timeout: Duration = .seconds(6)) async -> [ReminderEditSession] {
+        let edits = editsAtRisk
+        var finished = false
+        Task {
+            for edit in edits { await saveEdit(edit, undoManager: nil) }
+            finished = true
+        }
+        let deadline = ContinuousClock.now + timeout
+        while !finished, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return editsAtRisk
+    }
+
     func discardEdit(_ session: ReminderEditSession) {
         session.discard()
         if session.phase == .discarded { unsavedEdits[session.id] = nil }

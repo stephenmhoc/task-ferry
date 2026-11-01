@@ -1,13 +1,14 @@
 import Carbon.HIToolbox
 import Foundation
 
-/// A system-wide shortcut for Quick Entry (⌃⌥Space by default), registered through Carbon so no
+/// A system-wide shortcut for Quick Entry (⌃⇧Space), registered through Carbon so no
 /// dependency or Accessibility permission is needed.
 @MainActor
 final class GlobalHotKey {
     static let shared = GlobalHotKey()
 
-    static let displayString = "⌃⌥Space"
+    /// Not ⌃⌥Space, which macOS uses to switch input sources.
+    static let displayString = "⌃⇧Space"
 
     private var hotKeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
@@ -27,7 +28,7 @@ final class GlobalHotKey {
         let identifier = EventHotKeyID(signature: OSType(0x5446_5251), id: 1) // "TFRQ"
         RegisterEventHotKey(
             UInt32(kVK_Space),
-            UInt32(controlKey | optionKey),
+            UInt32(controlKey | shiftKey),
             identifier,
             GetApplicationEventTarget(),
             0,

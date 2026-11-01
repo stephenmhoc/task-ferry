@@ -15,12 +15,16 @@ struct QuickEntryView: View {
     var initialListID: String? = nil
     var initialDue: QuickDueOption = .today
     var onFinish: (() -> Void)? = nil
+    /// Told about each change, so typing survives the panel closing when you click elsewhere.
+    var onTitleChange: ((String) -> Void)? = nil
 
     @State private var title = ""
     @State private var listID = ""
     @State private var due = QuickDueOption.today
     @State private var isSubmitting = false
     @State private var confirmation: String?
+    /// The window shows sync errors in its own banner, so only say why this reminder failed.
+    @State private var addError: String?
     @FocusState private var titleFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -79,7 +83,7 @@ struct QuickEntryView: View {
                 }
             }
 
-            if let error = state.errorMessage {
+            if let error = addError {
                 Text(error)
                     .font(.caption)
                     .foregroundStyle(.red)
@@ -118,6 +122,7 @@ struct QuickEntryView: View {
             selectDefaultListIfNeeded()
         }
         .onChange(of: state.snapshot.lists) { _, _ in selectDefaultListIfNeeded() }
+        .onChange(of: title) { _, title in onTitleChange?(title) }
         .onChange(of: state.preferredNewReminderListID) { _, _ in
             if initialListID == nil { listID = state.newReminderListID ?? "" }
         }
@@ -127,6 +132,7 @@ struct QuickEntryView: View {
         let reminderTitle = title.trimmed
         guard !reminderTitle.isEmpty, !listID.isEmpty, !isSubmitting else { return }
         isSubmitting = true
+        addError = nil
         let listTitle = state.list(for: listID)?.title ?? ""
         Task {
             let outcome = await state.createReminder(
@@ -137,6 +143,7 @@ struct QuickEntryView: View {
             )
             isSubmitting = false
             guard outcome.succeeded else {
+                addError = state.errorMessage
                 titleFocused = true
                 return
             }

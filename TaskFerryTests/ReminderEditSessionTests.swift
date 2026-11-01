@@ -94,6 +94,46 @@ final class ReminderEditSessionTests: XCTestCase {
         XCTAssertTrue(valid)
     }
 
+    func testQuittingSavesAnOpenEdit() async {
+        let state = AppState(isDemo: true)
+        await state.refresh()
+        let session = ReminderEditSession(state.snapshot.reminders[0])
+        session.title = "Saved on the way out"
+        state.unsavedEdits[session.id] = session
+        let unsaved = await state.finishEdits()
+        XCTAssertTrue(unsaved.isEmpty)
+        XCTAssertEqual(state.reminder(for: session.original.id)?.title, "Saved on the way out")
+    }
+
+    func testQuittingReportsAnEditThatCouldNotSave() async {
+        let state = AppState(isDemo: true, demoScenario: .mutationFailure)
+        await state.refresh()
+        let session = ReminderEditSession(state.snapshot.reminders[0])
+        session.title = "Not saved"
+        state.unsavedEdits[session.id] = session
+        let unsaved = await state.finishEdits()
+        XCTAssertEqual(unsaved.map(\.id), [session.id])
+    }
+
+    func testFailedCompletionBringsTheReminderBack() async {
+        let state = AppState(isDemo: true, demoScenario: .mutationFailure)
+        await state.refresh()
+        let reminder = state.snapshot.reminders[0]
+        let completed = await state.completeNow([reminder])
+        XCTAssertTrue(completed.isEmpty)
+        XCTAssertTrue(state.completingIDs.isEmpty)
+        XCTAssertTrue(state.allReminders.contains { $0.id == reminder.id })
+    }
+
+    func testCompletionLeavesTheListsAtOnce() async {
+        let state = AppState(isDemo: true)
+        await state.refresh()
+        let reminder = state.snapshot.reminders[0]
+        let completed = await state.completeNow([reminder])
+        XCTAssertEqual(completed, [reminder.id])
+        XCTAssertFalse(state.allReminders.contains { $0.id == reminder.id })
+    }
+
     func testFailedDraftSurvivesCallerAndRetriesThroughAppState() async {
         let state = AppState(isDemo: true, demoScenario: .mutationFailure)
         await state.refresh()

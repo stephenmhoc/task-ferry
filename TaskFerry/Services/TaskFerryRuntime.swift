@@ -3,7 +3,17 @@ import Foundation
 /// One boundary for UI development. Demo preferences never share the installed app's domain.
 @MainActor
 enum TaskFerryRuntime {
-    nonisolated static var isDemo: Bool { ProcessInfo.processInfo.environment["TASK_FERRY_DEMO"] == "1" }
+    /// Local builds are demos unless they opt out with TASK_FERRY_DEMO=0, so running one can't
+    /// change real reminders. The released app is a demo only if asked.
+    nonisolated static var isDemo: Bool {
+        let setting = ProcessInfo.processInfo.environment["TASK_FERRY_DEMO"]
+        #if TASK_FERRY_DEV
+        return setting != "0"
+        #else
+        return setting == "1"
+        #endif
+    }
+
     static let preferences: UserDefaults = isDemo ? makeDemoPreferences() : .standard
 
     static func makeDemoPreferences() -> UserDefaults {

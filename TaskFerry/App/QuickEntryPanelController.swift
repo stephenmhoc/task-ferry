@@ -3,13 +3,21 @@ import SwiftUI
 
 /// A floating Quick Entry panel, like Spotlight or Things' Quick Entry. It appears over whatever
 /// you're doing without bringing the main window forward, and it goes away on Esc, when you click
-/// elsewhere, or once the reminder is added.
+/// elsewhere, or once the reminder is added. Clicking elsewhere keeps what you typed for next time.
 @MainActor
 final class QuickEntryPanelController: NSObject, NSWindowDelegate {
     static let shared = QuickEntryPanelController()
 
     private var panel: QuickEntryPanel?
     private weak var originatingWindow: NSWindow?
+    private var draft: Draft?
+
+    private struct Draft {
+        var title: String
+        var notes: String?
+        var listID: String?
+        var due: QuickDueOption
+    }
 
     func toggle(state: AppState) {
         if panel?.isVisible == true {
@@ -32,13 +40,16 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
             return
         }
         close(restoreFocus: false)
+        // A title from Services or a URL is a new reminder. Anything else picks up where you were.
+        if !title.isEmpty { draft = Draft(title: title, notes: notes, listID: listID, due: due) }
+        let opening = draft ?? Draft(title: title, notes: notes, listID: listID, due: due)
         let invokedFromWorkspace = restoresWorkspaceFocus ?? NSApp.isActive
         if invokedFromWorkspace {
             originatingWindow = NSApp.keyWindow ?? NSApp.mainWindow
         }
         // A nonactivating panel borrows keyboard focus from another process. Avoid that
         // machinery for our own File/Dock command, where ordinary window focus is correct.
-        var style: NSWindow.StyleMask = [.titled, .closable, .fullSizeContentView]
+        var style: NSWindow.StyleMask = [.titled, .fullSizeContentView]
         if !invokedFromWorkspace { style.insert(.nonactivatingPanel) }
         let panel = QuickEntryPanel(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 240),
@@ -53,23 +64,38 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
+        for button: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+            panel.standardWindowButton(button)?.isHidden = true
+        }
+        panel.onCancel = { [weak self] in self?.finish() }
         panel.delegate = self
         let hostingView = NSHostingView(rootView: QuickEntryView(
             state: state,
             style: .panel,
-            initialTitle: title,
-            initialNotes: notes,
-            initialListID: listID,
-            initialDue: due,
-            onFinish: { [weak self] in self?.close() }
+            initialTitle: opening.title,
+            initialNotes: opening.notes,
+            initialListID: opening.listID,
+            initialDue: opening.due,
+            onFinish: { [weak self] in self?.finish() },
+            onTitleChange: { [weak self] title in
+                guard let self else { return }
+                if self.draft == nil {
+                    self.draft = opening
+                }
+                self.draft?.title = title
+            }
         ))
         panel.contentView = hostingView
         panel.setContentSize(hostingView.fittingSize)
         position(panel)
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
+    }
+
+    /// Esc or a finished reminder: there's nothing to come back to.
+    private func finish() {
+        draft = nil
+        close()
     }
 
     func close(restoreFocus: Bool = true) {
@@ -112,9 +138,11 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
 }
 
 private final class QuickEntryPanel: NSPanel {
+    var onCancel: (() -> Void)?
+
     override var canBecomeKey: Bool { true }
 
     override func cancelOperation(_ sender: Any?) {
-        close()
+        onCancel?()
     }
 }
