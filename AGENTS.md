@@ -16,3 +16,4 @@
 - Keep the native window: `NavigationSplitView` for the sidebar and glass buttons in the title bar (`TitlebarButtons`), not hand-animated panes or toolbar items that follow the sidebar's edge.
 - `scripts/test-ui.sh` runs the one UI journey on demo data. It's local only, and it stays one journey: prove a UI fix once, then don't keep the check. A window has to be opened by the test, because an app launched that way doesn't open its own.
 - Run `scripts/test.sh` before committing. It fetches the pinned connector and regenerates the project.
+- Each version's release notes say what changed and, where possible, why.
