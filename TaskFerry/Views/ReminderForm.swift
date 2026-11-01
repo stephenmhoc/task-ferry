@@ -59,7 +59,7 @@ struct ReminderForm: View {
                 Button(action: onComplete) {
                     Image(systemName: "circle")
                         .font(.system(size: 18))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Color(hex: state.list(for: session.listID)?.colorHex ?? TaskFerryPalette.defaultListHex))
                 }
                 .buttonStyle(.plain)
                 .help("Mark as Completed")

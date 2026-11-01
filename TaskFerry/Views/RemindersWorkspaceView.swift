@@ -146,11 +146,7 @@ struct RemindersWorkspaceView: View {
         // Over the split view, not in the detail column, which would hide it behind the sidebar.
         .overlay(alignment: .bottomTrailing) { floatingButton }
         .background {
-            TitlebarButtons(
-                canAddReminder: !needsConnection,
-                toggleSidebar: toggleSidebar,
-                newReminder: beginNewReminder
-            )
+            TitlebarButtons(toggleSidebar: toggleSidebar)
         }
         .searchable(text: $searchText, placement: .toolbar, prompt: Text("Search"))
         .coordinateSpace(name: Self.workspaceSpace)
@@ -538,7 +534,8 @@ struct RemindersWorkspaceView: View {
             ReminderRow(
                 state: state,
                 reminder: reminder,
-                showsList: section.isOverdue || currentSelection == .all && section.title == nil,
+                // List titles scroll away, so a row has to say where it belongs by itself.
+                showsList: !currentSelection.isList,
                 showsFullDate: currentSelection == .all || currentSelection.isList || section.isOverdue,
                 onComplete: { complete([reminder]) }
             )
@@ -1056,7 +1053,7 @@ private struct ReminderRow: View {
             Button(action: complete) {
                 ZStack {
                     Circle()
-                        .strokeBorder(isHoveringCompletion || isCompleting ? AnyShapeStyle(listColor) : AnyShapeStyle(.tertiary), lineWidth: 1.5)
+                        .strokeBorder(listColor, lineWidth: 1.5)
                         .frame(width: 18, height: 18)
                     if isCompleting {
                         Image(systemName: "checkmark.circle.fill")

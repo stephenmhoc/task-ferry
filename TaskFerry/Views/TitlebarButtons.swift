@@ -1,18 +1,16 @@
 import AppKit
 import SwiftUI
 
-/// The sidebar and new reminder buttons, in the title bar beside the traffic lights. A toolbar item
+/// The sidebar button, in the title bar beside the traffic lights. A toolbar item
 /// would follow the sidebar's edge, and jump when it opens or closes.
 struct TitlebarButtons: NSViewRepresentable {
-    let canAddReminder: Bool
     let toggleSidebar: () -> Void
-    let newReminder: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSView { NSView() }
 
     func updateNSView(_ view: NSView, context: Context) {
-        let content = Buttons(canAddReminder: canAddReminder, toggleSidebar: toggleSidebar, newReminder: newReminder)
+        let content = Buttons(toggleSidebar: toggleSidebar)
         let coordinator = context.coordinator
         coordinator.show(content)
         DispatchQueue.main.async { [weak view] in
@@ -73,17 +71,11 @@ struct TitlebarButtons: NSViewRepresentable {
     }
 
     struct Buttons: View {
-        let canAddReminder: Bool
         let toggleSidebar: () -> Void
-        let newReminder: () -> Void
 
         var body: some View {
-            HStack(spacing: 8) {
-                button("sidebar.left", label: "Toggle Sidebar", help: "Show or hide the sidebar (⌃⌘S)", action: toggleSidebar)
-                button("plus", label: "New Reminder", help: "New Reminder (⌘N)", action: newReminder)
-                    .disabled(!canAddReminder)
-            }
-            .padding(.horizontal, 6)
+            button("sidebar.left", label: "Toggle Sidebar", help: "Show or hide the sidebar (⌃⌘S)", action: toggleSidebar)
+                .padding(.horizontal, 6)
         }
 
         private func button(_ icon: String, label: LocalizedStringKey, help: LocalizedStringKey, action: @escaping () -> Void) -> some View {
