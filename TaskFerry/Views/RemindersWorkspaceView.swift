@@ -125,10 +125,14 @@ struct RemindersWorkspaceView: View {
     @State private var listPendingDeletion: ReminderListRecord?
     @State private var isDropTargeted = false
     @State private var sidebarDropTarget: ReminderSidebarSelection?
+    /// Where each sidebar row is, so the floating button can find the row it's dropped on.
+    @State private var sidebarFrames: [ReminderSidebarSelection: CGRect] = [:]
     @FocusState private var listFocused: Bool
     @Environment(\.undoManager) private var undoManager
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    fileprivate static let workspaceSpace = "workspace"
 
     var body: some View {
         NavigationSplitView(columnVisibility: columnVisibility) {
@@ -139,6 +143,8 @@ struct RemindersWorkspaceView: View {
             detail
                 .frame(minWidth: 380)
         }
+        // Over the split view, not in the detail column, which would hide it behind the sidebar.
+        .overlay(alignment: .bottomTrailing) { floatingButton }
         .background {
             TitlebarButtons(
                 canAddReminder: !needsConnection,
@@ -147,6 +153,7 @@ struct RemindersWorkspaceView: View {
             )
         }
         .searchable(text: $searchText, placement: .toolbar, prompt: Text("Search"))
+        .coordinateSpace(name: Self.workspaceSpace)
         .searchFocused($searchFocused)
         .toolbar { ToolbarSpacer(.flexible) }
         .navigationTitle(displayTitle)
@@ -222,6 +229,27 @@ struct RemindersWorkspaceView: View {
             }
         } message: {
             Text("This also deletes every reminder in the list, including completed reminders. This can’t be undone.")
+        }
+    }
+
+    @ViewBuilder
+    private var floatingButton: some View {
+        if !needsConnection {
+            FloatingNewReminderButton(
+                action: beginNewReminder,
+                onDrag: { point in
+                    sidebarDropTarget = sidebarFrames.first { $0.value.contains(point) }?.key
+                },
+                onDrop: { point in
+                    let target = sidebarFrames.first { $0.value.contains(point) }?.key
+                    sidebarDropTarget = nil
+                    if let target { beginNewReminder(in: target) }
+                }
+            )
+            .popover(item: newReminderPopover, arrowEdge: .top) { session in
+                ReminderForm(state: state, session: session, onSave: saveNewReminder, onCancel: cancelNewReminder)
+            }
+            .padding(20)
         }
     }
 
@@ -310,7 +338,8 @@ struct RemindersWorkspaceView: View {
                     }
                 }
             ),
-            onDrop: { acceptDrop($0, into: destination) }
+            onDrop: { acceptDrop($0, into: destination) },
+            onFrame: { sidebarFrames[destination] = $0 }
         )
     }
 
@@ -385,15 +414,6 @@ struct RemindersWorkspaceView: View {
                 }
             }
         }
-        .overlay(alignment: .bottomTrailing) {
-            if !needsConnection {
-                FloatingNewReminderButton(action: beginNewReminder)
-                    .popover(item: newReminderPopover, arrowEdge: .top) { session in
-                        ReminderForm(state: state, session: session, onSave: saveNewReminder, onCancel: cancelNewReminder)
-                    }
-                    .padding(20)
-            }
-        }
         .background(Color(nsColor: .textBackgroundColor))
     }
 
@@ -411,9 +431,6 @@ struct RemindersWorkspaceView: View {
             }
             Spacer(minLength: 12)
             SyncStatusView(state: state)
-            Text("^[\(displayedReminders.count) open reminder](inflect: true)")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
         }
         .padding(.horizontal, Self.margin)
         .padding(.top, 14)
@@ -442,10 +459,14 @@ struct RemindersWorkspaceView: View {
             List(selection: $selection) {
                 ForEach(sections) { section in
                     if let title = section.title {
+                        // The title is a row, not a Section header: headers pin to the top as you
+                        // scroll, which looks wrong on load and over a long list.
                         Section {
-                            rows(section)
-                        } header: {
                             sectionHeader(title: title, section: section)
+                                .padding(.top, 14)
+                                .listRowSeparator(.hidden)
+                                .selectionDisabled()
+                            rows(section)
                         }
                         .listSectionSeparator(.hidden)
                     } else {
@@ -946,11 +967,6 @@ struct RemindersWorkspaceView: View {
             let shownHere = target == currentSelection ? Set(displayedReminders.map(\.id)) : []
             _ = provider.loadTransferable(type: ReminderDragItem.self) { result in
                 guard case .success(let item) = result else { return }
-                // The floating button, carrying no reminders: a new one goes where it's dropped.
-                if item.ids.isEmpty {
-                    Task { @MainActor in beginNewReminder(in: target) }
-                    return
-                }
                 // Dropped back onto the view it came from: nothing to move or reschedule.
                 if !shownHere.isEmpty, Set(item.ids).isSubset(of: shownHere) { return }
                 Task { @MainActor in
@@ -1150,31 +1166,49 @@ private struct ReminderRow: View {
 
 // MARK: - New reminders
 
-/// Click for a new reminder here, or drag it onto a list to start one there.
+/// Click for a new reminder here, or drag it onto a list to start one there. The button itself
+/// follows the pointer, and springs back if it isn't dropped on a list.
 private struct FloatingNewReminderButton: View {
     let action: () -> Void
+    let onDrag: (CGPoint) -> Void
+    let onDrop: (CGPoint) -> Void
 
+    @State private var offset: CGSize = .zero
+    @State private var isDragging = false
+
+    /// Not a Button, so that nothing else tracks the mouse while it's dragged.
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus")
-                .font(.system(size: 20, weight: .semibold))
-                .frame(width: 34, height: 34)
-        }
-        .buttonStyle(.glassProminent)
-        .buttonBorderShape(.circle)
-        .controlSize(.large)
-        .help("New Reminder (⌘N). Drag onto a list to add it there.")
-        .accessibilityLabel("Add Reminder")
-        .onDrag {
-            let provider = NSItemProvider()
-            provider.register(ReminderDragItem(ids: [], titles: []))
-            return provider
-        } preview: {
-            Label("New Reminder", systemImage: "plus.circle.fill")
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.regularMaterial, in: Capsule())
-        }
+        Image(systemName: "plus")
+            .font(.system(size: 20, weight: .semibold))
+            .frame(width: 48, height: 48)
+            .contentShape(Circle())
+            .glassEffect(.regular.interactive(), in: .circle)
+            .scaleEffect(isDragging ? 1.12 : 1)
+            .shadow(color: .black.opacity(isDragging ? 0.22 : 0), radius: 12, y: 6)
+            .offset(offset)
+            .onTapGesture(perform: action)
+            .gesture(
+                DragGesture(minimumDistance: 6, coordinateSpace: .named(RemindersWorkspaceView.workspaceSpace))
+                    .onChanged { value in
+                        withAnimation(.snappy(duration: 0.15)) { isDragging = true }
+                        offset = value.translation
+                        onDrag(value.location)
+                    }
+                    .onEnded { value in
+                        // Once it's home, because the new reminder's popover points at the button.
+                        withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
+                            offset = .zero
+                            isDragging = false
+                        } completion: {
+                            onDrop(value.location)
+                        }
+                    }
+            )
+            .help("New Reminder (⌘N). Drag onto a list to add it there.")
+            .accessibilityElement()
+            .accessibilityLabel("Add Reminder")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction(.default, action)
     }
 }
 
@@ -1182,9 +1216,11 @@ private struct FloatingNewReminderButton: View {
 private struct SidebarDropTarget: ViewModifier {
     @Binding var isTargeted: Bool
     let onDrop: ([NSItemProvider]) -> Bool
+    let onFrame: (CGRect) -> Void
 
     func body(content: Content) -> some View {
         content
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(RemindersWorkspaceView.workspaceSpace)) } action: { onFrame($0) }
             .onDrop(of: [.taskFerryReminders, .plainText], isTargeted: $isTargeted, perform: onDrop)
             .background {
                 if isTargeted {
