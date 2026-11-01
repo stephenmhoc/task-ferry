@@ -81,6 +81,23 @@ private struct GeneralSettingsPane: View {
             }
 
             if state.mode == .remote {
+                Section("New Reminders") {
+                    Picker("Default list", selection: Binding(
+                        get: { state.newReminderListID ?? "" },
+                        set: { state.rememberNewReminderList($0) }
+                    )) {
+                        ForEach(state.snapshot.lists) { list in
+                            Label {
+                                Text(list.title)
+                            } icon: {
+                                ListColorDot.image(hex: list.colorHex)
+                            }
+                            .tag(list.id)
+                        }
+                    }
+                    .disabled(state.snapshot.lists.isEmpty)
+                }
+
                 Section("Quick Entry") {
                     Toggle("Show Quick Reminder in the menu bar", isOn: $showsQuickEntry)
                     Toggle("Open Quick Entry with \(GlobalHotKey.displayString)", isOn: $hotKeyEnabled)

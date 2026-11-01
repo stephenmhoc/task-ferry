@@ -43,7 +43,6 @@
 		55EA72E0684B701949631C43 /* QuickEntryPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02639A061AD6B1D7DC367DAF /* QuickEntryPanelController.swift */; };
 		577B7095F8D46939D2093AA7 /* RemoteConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAEB6CE963CBCE4C64D6BD6 /* RemoteConfigurationTests.swift */; };
 		59A182624B1D47885EB65699 /* CloudflareSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA0EB6D5A1517A666AC25788 /* CloudflareSetupView.swift */; };
-		5ECDE37D0A09C19EDB9E7688 /* ReminderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F88C908376F5B52C56E1F9B /* ReminderDetailView.swift */; };
 		60139F50181F73F7F9C34D5B /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A48421F551E6D43793CFE8E /* UpdateManager.swift */; };
 		611CA3FB9E6CA3C3D09A43E2 /* ReminderOperationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F6988989C67F49EDDEF55A2 /* ReminderOperationCoordinator.swift */; };
 		615BFBA873C854D7D3BF8E9D /* CredentialManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17EF84ED606A796CC25EC29 /* CredentialManager.swift */; };
@@ -64,6 +63,7 @@
 		8918D1DF896DBCBB169D1606 /* CloudflareAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EDFF46F3B1E234ACE1B9D97 /* CloudflareAPIClient.swift */; };
 		8AC29D14F204E4EECCDA4863 /* cloudflared-LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 9D97A5F95CA51751BE9EC7F2 /* cloudflared-LICENSE */; };
 		8D9F17B75C8CE3E39E99BCA0 /* CredentialManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17EF84ED606A796CC25EC29 /* CredentialManager.swift */; };
+		8FB98FBC4844816D0DF091E8 /* ReminderForm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 645C597A24B049040D92FB50 /* ReminderForm.swift */; };
 		9032C35F6E06A12A8ADD629C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C890C6B4795075390038A326 /* SettingsView.swift */; };
 		931A84C3686629DCC7464B0B /* ReminderUndo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C07DA1F653DCF20220AAF2 /* ReminderUndo.swift */; };
 		96C1BEED124B32F2E3EC1ACE /* ReminderNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D3851DB285BEA89945F17B /* ReminderNotificationScheduler.swift */; };
@@ -154,7 +154,6 @@
 		439D6E88D4070EB863DD8279 /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
 		48304F6EC88C120975755421 /* WorkspaceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceUITests.swift; sourceTree = "<group>"; };
 		4A892D70576AAA67D3165488 /* Info-Dev.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Info-Dev.plist"; sourceTree = "<group>"; };
-		4F88C908376F5B52C56E1F9B /* ReminderDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderDetailView.swift; sourceTree = "<group>"; };
 		520DB7327FF061A3B4D74847 /* TitlebarButtons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlebarButtons.swift; sourceTree = "<group>"; };
 		5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderBatchTests.swift; sourceTree = "<group>"; };
 		55ABD56FC51E50ECB96678D8 /* CloudflareOAuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareOAuthClient.swift; sourceTree = "<group>"; };
@@ -162,6 +161,7 @@
 		5AE4925DAD9FE749F1305171 /* ReminderLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderLinks.swift; sourceTree = "<group>"; };
 		5BF6290C6B74AEC75C990D52 /* MenuRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuRootView.swift; sourceTree = "<group>"; };
 		5E8F21B5DE1B27F9ED4DC03C /* cloudflared */ = {isa = PBXFileReference; path = cloudflared; sourceTree = "<group>"; };
+		645C597A24B049040D92FB50 /* ReminderForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderForm.swift; sourceTree = "<group>"; };
 		64F546C3E708667FF321FD0F /* ListEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListEditorSheet.swift; sourceTree = "<group>"; };
 		6581628FBCDD91E4755EB8FF /* CloudflareCleanupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareCleanupStore.swift; sourceTree = "<group>"; };
 		6CE2147564AB064353F50CA0 /* TaskFerry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TaskFerry.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -316,7 +316,7 @@
 				64F546C3E708667FF321FD0F /* ListEditorSheet.swift */,
 				5BF6290C6B74AEC75C990D52 /* MenuRootView.swift */,
 				8B65434108D6E8108BD12A74 /* QuickEntryView.swift */,
-				4F88C908376F5B52C56E1F9B /* ReminderDetailView.swift */,
+				645C597A24B049040D92FB50 /* ReminderForm.swift */,
 				3301D1B8B11F0679D3089FB1 /* ReminderLinkMenu.swift */,
 				CD8477AD2D1D161E619CACA2 /* ReminderPresentation.swift */,
 				7BA43021B55744BC69F34B30 /* RemindersWorkspaceView.swift */,
@@ -554,8 +554,8 @@
 				4EAC55537DF9CE105F6647E6 /* QuickEntryView.swift in Sources */,
 				7054BD1A3779906826A8A58C /* ReminderBatchOperations.swift in Sources */,
 				013F1E509F40623D6584A351 /* ReminderConnection.swift in Sources */,
-				5ECDE37D0A09C19EDB9E7688 /* ReminderDetailView.swift in Sources */,
 				33E2C016D284FD4FA8F06763 /* ReminderEditSession.swift in Sources */,
+				8FB98FBC4844816D0DF091E8 /* ReminderForm.swift in Sources */,
 				C64A6FA6D38436190711B932 /* ReminderLinkMenu.swift in Sources */,
 				2A2F891B2DDB4426C059EEEF /* ReminderLinks.swift in Sources */,
 				9DF8CAB1820D7C3EB204F689 /* ReminderNotificationPlan.swift in Sources */,

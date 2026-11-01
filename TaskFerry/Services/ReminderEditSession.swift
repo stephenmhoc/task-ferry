@@ -37,6 +37,14 @@ final class ReminderEditSession: Identifiable {
         includesTime = reminder.due?.hasTime ?? false
     }
 
+    /// A reminder that doesn't exist yet. It shares the form, and only saving it differs.
+    convenience init(newIn listID: String, due: ReminderDue?, connectionRevision: Int? = nil) {
+        self.init(ReminderRecord(id: "", listID: listID, title: "", notes: nil, due: due, url: nil),
+                  connectionRevision: connectionRevision)
+    }
+
+    var isNew: Bool { original.id.isEmpty }
+
     var updated: ReminderRecord {
         let initial = original.due
         let untouched = hasDue == (initial != nil)
@@ -117,6 +125,17 @@ extension AppState {
         }
         if succeeded || session.phase == .discarded { unsavedEdits[session.id] = nil }
         return succeeded
+    }
+
+    /// Creates the reminder a new session describes, and returns its identifier once it exists.
+    func saveNewReminder(_ session: ReminderEditSession) async -> (saved: Bool, id: String?) {
+        var createdID: String?
+        let saved = await session.commit { [self] value in
+            let outcome = await createReminder(title: value.title, listID: value.listID, due: value.due, notes: value.notes)
+            createdID = outcome.createdID
+            return outcome.succeeded ? nil : errorMessage ?? String(localized: "Couldn’t add this reminder. Try again.")
+        }
+        return (saved, createdID)
     }
 
     /// Edits that quitting now would lose, including ones that failed to save earlier.

@@ -285,7 +285,7 @@ final class AppState {
         return snapshot.lists.first?.id
     }
 
-    /// The most recently chosen list in a new-reminder picker, when it still exists.
+    /// The list chosen in Settings for new reminders, when it still exists.
     var newReminderListID: String? {
         if let id = preferredNewReminderListID,
            snapshot.lists.contains(where: { $0.id == id }) {

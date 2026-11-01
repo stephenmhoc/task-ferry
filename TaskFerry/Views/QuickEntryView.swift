@@ -184,10 +184,7 @@ struct QuickEntryView: View {
     private var listSelection: Binding<String> {
         Binding(
             get: { listID },
-            set: {
-                listID = $0
-                state.rememberNewReminderList($0)
-            }
+            set: { listID = $0 }
         )
     }
 }
