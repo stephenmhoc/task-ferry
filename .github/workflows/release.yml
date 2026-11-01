@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "A native Mac redesign: a real sidebar that slides smoothly, glass buttons that stay beside the window controls, and a quieter header with a status footer. Completing a reminder now responds instantly. Quitting saves an open edit, or warns you if it can't. Quick Entry keeps your text when you click away. The Quick Entry shortcut is now Control-Shift-Space. Requires macOS 26 or newer."
+      RELEASE_NOTES: "Creating and editing a reminder are now the same native form, in a popover like a Calendar event, because the old inline editor and footer never felt like a Mac app. A floating + button replaces the footer: click it, or drag it onto a list to start a reminder there. Settings now has a default list for new reminders, which Quick Entry no longer changes behind your back. The sidebar can no longer shrink far enough to cut the title bar buttons in half. Requires macOS 26 or newer."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
