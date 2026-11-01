@@ -125,14 +125,13 @@ struct RemindersWorkspaceView: View {
     @State private var listPendingDeletion: ReminderListRecord?
     @State private var isDropTargeted = false
     @State private var sidebarDropTarget: ReminderSidebarSelection?
-    /// Where each sidebar row is, so the floating button can find the row it's dropped on.
+    /// Where each sidebar row is, so the floating button can find the row it's dropped on. Global,
+    /// like the button's drag: a split view's columns can't see a coordinate space named outside it.
     @State private var sidebarFrames: [ReminderSidebarSelection: CGRect] = [:]
     @FocusState private var listFocused: Bool
     @Environment(\.undoManager) private var undoManager
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    fileprivate static let workspaceSpace = "workspace"
 
     var body: some View {
         NavigationSplitView(columnVisibility: columnVisibility) {
@@ -149,7 +148,6 @@ struct RemindersWorkspaceView: View {
             TitlebarButtons(toggleSidebar: toggleSidebar)
         }
         .searchable(text: $searchText, placement: .toolbar, prompt: Text("Search"))
-        .coordinateSpace(name: Self.workspaceSpace)
         .searchFocused($searchFocused)
         .toolbar { ToolbarSpacer(.flexible) }
         .navigationTitle(displayTitle)
@@ -234,10 +232,10 @@ struct RemindersWorkspaceView: View {
             FloatingNewReminderButton(
                 action: beginNewReminder,
                 onDrag: { point in
-                    sidebarDropTarget = sidebarFrames.first { $0.value.contains(point) }?.key
+                    sidebarDropTarget = sidebarRow(at: point)
                 },
                 onDrop: { point in
-                    let target = sidebarFrames.first { $0.value.contains(point) }?.key
+                    let target = sidebarRow(at: point)
                     sidebarDropTarget = nil
                     if let target { beginNewReminder(in: target) }
                 }
@@ -247,6 +245,11 @@ struct RemindersWorkspaceView: View {
             }
             .padding(20)
         }
+    }
+
+    /// Rows are spaced apart, so each one reaches halfway into the gaps around it.
+    private func sidebarRow(at point: CGPoint) -> ReminderSidebarSelection? {
+        sidebarFrames.first { $0.value.insetBy(dx: 0, dy: -6).contains(point) }?.key
     }
 
     // MARK: - Sidebar
@@ -276,8 +279,8 @@ struct RemindersWorkspaceView: View {
                         }
                         .frame(width: 20, height: 20)
                     }
-                    .tag(ReminderSidebarSelection.list(list.id))
                     .modifier(sidebarDrop(.list(list.id)))
+                    .tag(ReminderSidebarSelection.list(list.id))
                     .contextMenu {
                         Button("Get Info…") { listEditor = .edit(list) }
                         Divider()
@@ -318,8 +321,9 @@ struct RemindersWorkspaceView: View {
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(destination.color(listColorHex: nil))
         }
-        .tag(destination)
+        // Last, because the sidebar can't select a row whose tag is inside its geometry reader.
         .modifier(sidebarDrop(destination))
+        .tag(destination)
     }
 
     private func sidebarDrop(_ destination: ReminderSidebarSelection) -> SidebarDropTarget {
@@ -1177,15 +1181,16 @@ private struct FloatingNewReminderButton: View {
     var body: some View {
         Image(systemName: "plus")
             .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(.white)
             .frame(width: 48, height: 48)
             .contentShape(Circle())
-            .glassEffect(.regular.interactive(), in: .circle)
+            .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
             .scaleEffect(isDragging ? 1.12 : 1)
             .shadow(color: .black.opacity(isDragging ? 0.22 : 0), radius: 12, y: 6)
             .offset(offset)
             .onTapGesture(perform: action)
             .gesture(
-                DragGesture(minimumDistance: 6, coordinateSpace: .named(RemindersWorkspaceView.workspaceSpace))
+                DragGesture(minimumDistance: 6, coordinateSpace: .global)
                     .onChanged { value in
                         withAnimation(.snappy(duration: 0.15)) { isDragging = true }
                         offset = value.translation
@@ -1217,7 +1222,7 @@ private struct SidebarDropTarget: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(RemindersWorkspaceView.workspaceSpace)) } action: { onFrame($0) }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { onFrame($0) }
             .onDrop(of: [.taskFerryReminders, .plainText], isTargeted: $isTargeted, perform: onDrop)
             .background {
                 if isTargeted {
