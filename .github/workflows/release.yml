@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "Task Ferry now works more like a Mac app. You create and rename reminders right in the list, the way Reminders does: Return adds a reminder and starts the next one, Esc cancels, and ⌘I opens Show Info for the date, list, and notes. Deleting and creating can be undone with ⌘Z, so deleting a reminder no longer asks first, unless it repeats or has alerts that Undo couldn't bring back. Search now looks through every list. The floating + works with the keyboard and VoiceOver, and you can still drag it onto a list. Quick Entry is a lighter glass panel that shows any notes it will add, and you can choose your own shortcut for it in Settings. The bridge's menu bar icon shows when something needs attention. Mark as Completed is now ⇧⌘C, matching Reminders. Window ▸ Task Ferry (⌘0) brings the main window back."
+      RELEASE_NOTES: "Editing a reminder now opens up its row, as in Reminders, so you can change its notes, date, time and list as well as the title. New reminders work the same way. Dates and times show as Today, Tomorrow or 6:00 PM, and clicking one opens quick choices and a full-size calendar. A change made on your other Mac while you're editing is no longer overwritten when you save. The floating + now moves with the pointer when you drag it onto a list, and looks more like a button you can press. The sidebar opens wide enough for list names, and the crash-report setting has moved to Settings ▸ Advanced."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
