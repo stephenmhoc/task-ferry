@@ -139,6 +139,12 @@ struct ReminderRecord: Codable, Hashable, Identifiable, Sendable {
     var due: ReminderDue?
     /// Apple Reminders' dedicated URL, displayed read-only. Older bridges omit this field.
     var url: URL? = nil
+    /// True when the reminder has something Undo can't bring back after a delete, because the
+    /// protocol can't carry it: a repeat schedule, alerts other than the one at its due time, a
+    /// priority, a location, or a start date. Older bridges omit this field, and a remote treats
+    /// that as true. EventKit doesn't expose flags, tags, subtasks, or images at all, so those can't
+    /// be detected.
+    var hasUnrestorableDetails: Bool? = nil
 }
 
 struct ReminderSnapshot: Codable, Equatable, Sendable {
@@ -174,6 +180,9 @@ struct RPCRequest: Codable, Sendable {
     var colorHex: String? = nil
     /// Identifies one logical mutation so a retried request is applied at most once.
     var requestID: String? = nil
+    /// Apple Reminders' URL field, for `upsertReminder`, so Undo can bring a deleted reminder back
+    /// with it. Only set when present, never cleared. Older bridges ignore it.
+    var url: URL? = nil
 
     static let snapshot = RPCRequest(operation: .snapshot)
 }

@@ -14,31 +14,39 @@ final class WorkspaceUITests: XCTestCase {
         let window = app.windows.firstMatch
         if !window.waitForExistence(timeout: 3) { app.typeKey("n", modifierFlags: [.command, .option]) }
         XCTAssertTrue(window.waitForExistence(timeout: 10))
-        let toggle = app.buttons["Toggle Sidebar"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
 
         // The sidebar button stays beside the traffic lights.
+        let toggle = app.buttons["Hide Sidebar"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         let open = toggle.frame.minX
         toggle.click()
+        let show = app.buttons["Show Sidebar"]
+        XCTAssertTrue(show.waitForExistence(timeout: 2))
         Thread.sleep(forTimeInterval: 0.6)
-        XCTAssertEqual(toggle.frame.minX, open, accuracy: 1)
-        toggle.click()
+        XCTAssertEqual(show.frame.minX, open, accuracy: 1)
+        show.click()
         Thread.sleep(forTimeInterval: 0.6)
 
-        app.typeKey("n", modifierFlags: .command)
+        // The floating + is a real button, and starts an empty row to type into.
+        let add = app.buttons["New Reminder"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.click()
         let title = "Journey \(UUID().uuidString.prefix(6))"
         app.typeText(title + "\r")
         let row = reminder(title, in: app)
         XCTAssertTrue(row.waitForExistence(timeout: 5), "new reminder isn't listed")
 
-        row.doubleClick()
+        // Leave the next empty row, then rename the reminder in place.
+        app.typeKey(.escape, modifierFlags: [])
+        row.click()
+        app.typeKey(.return, modifierFlags: [])
         app.typeKey("a", modifierFlags: .command)
         app.typeText("\(title) edited\r")
         let edited = reminder("\(title) edited", in: app)
         XCTAssertTrue(edited.waitForExistence(timeout: 5), "edit wasn't saved")
 
         edited.click()
-        app.typeKey("k", modifierFlags: .command)
+        app.typeKey("c", modifierFlags: [.command, .shift])
         XCTAssertTrue(edited.waitForNonExistence(timeout: 5), "completed reminder is still listed")
     }
 

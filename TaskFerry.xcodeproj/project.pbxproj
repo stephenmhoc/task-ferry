@@ -50,6 +50,7 @@
 		61AFAAC7AB8674A99503BF6F /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 0CE6CCA0DD41D67E216A2067 /* Credits.rtf */; };
 		632C43D8160611B1D4FF3207 /* ServicesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0325FA4416ECE8345C20E6B9 /* ServicesProvider.swift */; };
 		635F25F0AA2AD2FB3D605B65 /* ReminderPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD8477AD2D1D161E619CACA2 /* ReminderPresentation.swift */; };
+		658A21259BA10F701A20F453 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9DA815ECCDE5236ABACFD004 /* Localizable.xcstrings */; };
 		66F5008EA4F91DC992D690B7 /* TaskFerryRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52A7B083D1BA2B9D93C32A0 /* TaskFerryRuntime.swift */; };
 		6B20BCDD8A0AB7BC45913B63 /* SnapshotCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = D91048A09C2CA2FD1A989923 /* SnapshotCache.swift */; };
 		6C0229996D94D09A067DE55B /* RemindersWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BA43021B55744BC69F34B30 /* RemindersWorkspaceView.swift */; };
@@ -183,6 +184,7 @@
 		937825C16908C89043F79A31 /* ReminderConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderConnection.swift; sourceTree = "<group>"; };
 		9D29BDF8DAB2B1F9950C6D93 /* Pasteboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pasteboard.swift; sourceTree = "<group>"; };
 		9D97A5F95CA51751BE9EC7F2 /* cloudflared-LICENSE */ = {isa = PBXFileReference; path = "cloudflared-LICENSE"; sourceTree = "<group>"; };
+		9DA815ECCDE5236ABACFD004 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		9EB79CFEDAD370307BCCE317 /* ReminderNotificationPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderNotificationPlan.swift; sourceTree = "<group>"; };
 		9EDFF46F3B1E234ACE1B9D97 /* CloudflareAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareAPIClient.swift; sourceTree = "<group>"; };
 		9F6988989C67F49EDDEF55A2 /* ReminderOperationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderOperationCoordinator.swift; sourceTree = "<group>"; };
@@ -265,6 +267,7 @@
 				0CE6CCA0DD41D67E216A2067 /* Credits.rtf */,
 				4A892D70576AAA67D3165488 /* Info-Dev.plist */,
 				A61CE4D480A804C09D970DAB /* Info-Direct.plist */,
+				9DA815ECCDE5236ABACFD004 /* Localizable.xcstrings */,
 				EB0F14CB5D185CF4FAC95DFA /* TaskFerry-Direct.entitlements */,
 				EB3A64D3DB7D0A3BA9578886 /* TaskFerry.entitlements */,
 				C6CB77C66C0D9D02A5CE4FBD /* TaskFerryApp.swift */,
@@ -504,6 +507,7 @@
 			files = (
 				0AE39A8C6052D8549BC5D91A /* Assets.xcassets in Resources */,
 				61AFAAC7AB8674A99503BF6F /* Credits.rtf in Resources */,
+				658A21259BA10F701A20F453 /* Localizable.xcstrings in Resources */,
 				8AC29D14F204E4EECCDA4863 /* cloudflared-LICENSE in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -710,6 +714,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.2.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -717,6 +722,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -823,6 +829,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.2.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -830,6 +837,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1004,6 +1012,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 0.2.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -1012,6 +1021,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;

@@ -8,6 +8,7 @@ enum DiagnosticArea: String, Sendable {
     case cloudflareConnector = "cloudflare_connector"
     case cloudflareSetup = "cloudflare_setup"
     case credentials
+    case globalHotKey = "global_hot_key"
 }
 
 /// Everything a handled failure sends: a place, an error type, and a code. Never add the error's

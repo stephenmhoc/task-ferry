@@ -1,0 +1,1060 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "“%@” couldn’t be saved" : {
+
+    },
+    "%@" : {
+
+    },
+    "%@ — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ — %2$@"
+          }
+        }
+      }
+    },
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "%@ Retrying automatically." : {
+
+    },
+    "%lld edits couldn’t be saved" : {
+
+    },
+    "^[%lld list](inflect: true) · ^[%lld open reminder](inflect: true)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "^[%1$lld list](inflect: true) · ^[%2$lld open reminder](inflect: true)"
+          }
+        }
+      }
+    },
+    "^[%lld reminder](inflect: true) due today." : {
+
+    },
+    "A Clear Day" : {
+
+    },
+    "A previous setup couldn’t finish removing its resources. Authorize Cloudflare again to retry cleanup." : {
+
+    },
+    "A reminder needs a title and a list." : {
+
+    },
+    "A reminder was removed elsewhere. Refresh and try again." : {
+
+    },
+    "Access needs attention" : {
+
+    },
+    "Add ${reminderTitle} to ${list}" : {
+
+    },
+    "Add an active domain to this Cloudflare account, then try again." : {
+
+    },
+    "Add List" : {
+
+    },
+    "Add Reminder" : {
+
+    },
+    "Added “%@” to %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Added “%1$@” to %2$@."
+          }
+        }
+      }
+    },
+    "Added to %@" : {
+
+    },
+    "Adding…" : {
+
+    },
+    "Address" : {
+
+    },
+    "Adds a reminder to Apple Reminders on your bridge Mac." : {
+
+    },
+    "Advanced" : {
+
+    },
+    "Alert me when reminders are due" : {
+
+    },
+    "All Reminders" : {
+
+    },
+    "Allow notifications for Task Ferry in System Settings → Notifications." : {
+
+    },
+    "Allow Task Ferry in System Settings to finish." : {
+
+    },
+    "Always shown while the bridge runs in the background, since it has no Dock icon." : {
+
+    },
+    "Another app is using %@. Choose a different shortcut." : {
+
+    },
+    "Authorize & Remove" : {
+
+    },
+    "Authorize & Retry Cleanup" : {
+
+    },
+    "Blue" : {
+
+    },
+    "Bridge" : {
+
+    },
+    "Bridge could not start" : {
+
+    },
+    "Bridge is ready" : {
+
+    },
+    "Bridge is stopped" : {
+
+    },
+    "Bridge token" : {
+
+    },
+    "Brown" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Change Due Date" : {
+
+    },
+    "Change Role" : {
+
+    },
+    "Change this Mac’s role?" : {
+
+    },
+    "Check for updates automatically" : {
+
+    },
+    "Check for Updates…" : {
+
+    },
+    "Check Now" : {
+
+    },
+    "Checking access…" : {
+
+    },
+    "Choose a Different Role…" : {
+
+    },
+    "Choose a different shortcut" : {
+
+    },
+    "Choose a role in the Task Ferry window." : {
+
+    },
+    "Choose the role for this Mac. You can change it later in Settings." : {
+
+    },
+    "Cloudflare" : {
+
+    },
+    "Cloudflare Zero Trust must already be activated for the selected account. Its free plan is sufficient." : {
+
+    },
+    "Color:" : {
+
+    },
+    "Completed %@" : {
+
+    },
+    "Completed %lld reminders" : {
+
+    },
+    "Connect" : {
+
+    },
+    "Connect this Mac to your bridge first." : {
+
+    },
+    "Connect this Mac to your bridge in Task Ferry first." : {
+
+    },
+    "Connect to Your Bridge" : {
+
+    },
+    "Connected" : {
+
+    },
+    "Connected. The connection is stored in your Keychain." : {
+
+    },
+    "Connecting to Cloudflare…" : {
+
+    },
+    "Connecting…" : {
+
+    },
+    "Connection" : {
+
+    },
+    "Connection code" : {
+
+    },
+    "Connection code copied. It contains passwords, so share it securely." : {
+
+    },
+    "Continue in Browser" : {
+
+    },
+    "Copy" : {
+
+    },
+    "Copy Connection Code" : {
+
+    },
+    "Copy Draft" : {
+
+    },
+    "Copy the code on the bridge Mac with Copy Connection Code. It contains passwords, so send it securely." : {
+
+    },
+    "Couldn’t add this reminder. Try again." : {
+
+    },
+    "Couldn’t delete this list. Try again." : {
+
+    },
+    "Couldn’t Load Your Reminders" : {
+
+    },
+    "Couldn’t save “%@”" : {
+
+    },
+    "Couldn’t save this change. Try again." : {
+
+    },
+    "Couldn’t save this edit. Try again." : {
+
+    },
+    "Couldn’t save this list. Try again." : {
+
+    },
+    "Count" : {
+
+    },
+    "Create" : {
+
+    },
+    "Create a new list in Apple Reminders" : {
+
+    },
+    "Create Private Connection" : {
+
+    },
+    "Date" : {
+
+    },
+    "Default list" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete “%@”?" : {
+
+    },
+    "Delete %lld reminders?" : {
+
+    },
+    "Delete List" : {
+
+    },
+    "Delete List…" : {
+
+    },
+    "Delete Reminder" : {
+
+    },
+    "Delete Reminders" : {
+
+    },
+    "Deleted %@" : {
+
+    },
+    "Deleted %lld reminders" : {
+
+    },
+    "Demo bridge" : {
+
+    },
+    "Demo connection ready. Nothing was saved to Keychain." : {
+
+    },
+    "Demo mode does not register a system shortcut or Services provider." : {
+
+    },
+    "Demo mode: Cloudflare authorization and provisioning are disabled." : {
+
+    },
+    "Demo only. Login registration was not changed." : {
+
+    },
+    "Demo only. No notification permission is requested and no alerts are scheduled." : {
+
+    },
+    "Demo token" : {
+
+    },
+    "Demo: the bridge is offline. Your last-synced reminders are shown." : {
+
+    },
+    "Discard Draft" : {
+
+    },
+    "Dismiss" : {
+
+    },
+    "Dismiss error" : {
+
+    },
+    "Dock" : {
+
+    },
+    "Domain:" : {
+
+    },
+    "Done" : {
+
+    },
+    "Download and install updates automatically" : {
+
+    },
+    "Drag onto a list in the sidebar to add the reminder there." : {
+
+    },
+    "Due" : {
+
+    },
+    "Due %@" : {
+
+    },
+    "Due date" : {
+
+    },
+    "Due Date" : {
+
+    },
+    "Due date unavailable" : {
+
+    },
+    "Due time" : {
+
+    },
+    "Due Today" : {
+
+    },
+    "Due Tomorrow" : {
+
+    },
+    "Edit Reminder" : {
+
+    },
+    "Find…" : {
+
+    },
+    "Finish Cloudflare Cleanup" : {
+
+    },
+    "Finish configuring the remote connection in Settings." : {
+
+    },
+    "General" : {
+
+    },
+    "Generate a new bridge token?" : {
+
+    },
+    "Generate New Token" : {
+
+    },
+    "Generate New Token…" : {
+
+    },
+    "Generating…" : {
+
+    },
+    "Get alerts on this Mac for reminders from your bridge. Task Ferry schedules the next two weeks, with Mark as Completed, Remind Me in 1 Hour, and Move to Tomorrow actions." : {
+
+    },
+    "Get Today’s Reminders" : {
+
+    },
+    "Getting ready to share this Mac’s reminders." : {
+
+    },
+    "Graphite" : {
+
+    },
+    "Green" : {
+
+    },
+    "Has a date" : {
+
+    },
+    "Has a time" : {
+
+    },
+    "Hide bridge token" : {
+
+    },
+    "Hide connection code" : {
+
+    },
+    "Hide Sidebar" : {
+
+    },
+    "Hides the Dock icon while the bridge keeps running. Use the menu bar item to open Task Ferry or quit." : {
+
+    },
+    "Indigo" : {
+
+    },
+    "Keep a copy for instant launch" : {
+
+    },
+    "Keep Editing" : {
+
+    },
+    "Leave empty to use your default list." : {
+
+    },
+    "Let Task Ferry create a tunnel, DNS record, and protected Access connection in your own Cloudflare account." : {
+
+    },
+    "List" : {
+
+    },
+    "List Info" : {
+
+    },
+    "List Name" : {
+
+    },
+    "Lists stay in sync with Apple Reminders." : {
+
+    },
+    "Loading lists…" : {
+
+    },
+    "Loading your reminders…" : {
+
+    },
+    "Local address" : {
+
+    },
+    "Local connection" : {
+
+    },
+    "macOS didn’t accept %@. Choose a different shortcut." : {
+
+    },
+    "Make them available to your other Macs" : {
+
+    },
+    "Mark %@ as completed" : {
+
+    },
+    "Mark as Completed" : {
+
+    },
+    "Mark as Incomplete" : {
+
+    },
+    "Menu Bar" : {
+
+    },
+    "Missing" : {
+
+    },
+    "More Actions" : {
+
+    },
+    "More actions for this draft" : {
+
+    },
+    "Move to List" : {
+
+    },
+    "Move to Tomorrow" : {
+
+    },
+    "My Lists" : {
+
+    },
+    "Name:" : {
+
+    },
+    "New List" : {
+
+    },
+    "New List…" : {
+
+    },
+    "New Reminder" : {
+
+    },
+    "New Reminder in %@" : {
+
+    },
+    "New reminder title" : {
+
+    },
+    "New Reminders" : {
+
+    },
+    "New token ready." : {
+
+    },
+    "New token ready. Copy the connection code again for each remote Mac." : {
+
+    },
+    "New Window" : {
+
+    },
+    "No Active Domains" : {
+
+    },
+    "No Date" : {
+
+    },
+    "No Reminders" : {
+
+    },
+    "None" : {
+
+    },
+    "Not configured" : {
+
+    },
+    "Not connected" : {
+
+    },
+    "Not ready" : {
+
+    },
+    "Not selected" : {
+
+    },
+    "Not set up" : {
+
+    },
+    "Not syncing" : {
+
+    },
+    "Notes" : {
+
+    },
+    "Nothing is due today." : {
+
+    },
+    "Nothing Left to Do" : {
+
+    },
+    "Notifications" : {
+
+    },
+    "Offline" : {
+
+    },
+    "Offline — retrying" : {
+
+    },
+    "Offline · updated %@" : {
+
+    },
+    "On the Mac that shares its reminders, open Task Ferry and choose Copy Connection Code. Then paste it here." : {
+
+    },
+    "Only reachable from this Mac" : {
+
+    },
+    "Open %@" : {
+
+    },
+    "Open at Login" : {
+
+    },
+    "Open Link" : {
+
+    },
+    "Open Login Items" : {
+
+    },
+    "Open Privacy Settings" : {
+
+    },
+    "Open Quick Entry with a keyboard shortcut" : {
+
+    },
+    "Open Reminders View" : {
+
+    },
+    "Open Settings to configure this Mac." : {
+
+    },
+    "Open Settings…" : {
+
+    },
+    "Open Task Ferry" : {
+
+    },
+    "Open View" : {
+
+    },
+    "Opens Task Ferry to Today, Tomorrow, or All Reminders." : {
+
+    },
+    "Orange" : {
+
+    },
+    "Other" : {
+
+    },
+    "Overdue" : {
+
+    },
+    "Overdue Only" : {
+
+    },
+    "Paste" : {
+
+    },
+    "Paste Connection Code" : {
+
+    },
+    "Pink" : {
+
+    },
+    "Press + when something comes up." : {
+
+    },
+    "Press a key with two modifiers, one of them ⌃ or ⌘. Esc cancels." : {
+
+    },
+    "Privacy" : {
+
+    },
+    "Public address" : {
+
+    },
+    "Public address:" : {
+
+    },
+    "Purple" : {
+
+    },
+    "Quick Entry" : {
+
+    },
+    "Quick Entry is also in the Services menu of other apps, as New Task Ferry Reminder." : {
+
+    },
+    "Quick Entry shortcut" : {
+
+    },
+    "Quick Entry…" : {
+
+    },
+    "Quit" : {
+
+    },
+    "Quit Anyway" : {
+
+    },
+    "Quit Task Ferry" : {
+
+    },
+    "Ready" : {
+
+    },
+    "Reconnecting to Cloudflare…" : {
+
+    },
+    "Red" : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Remind Me in 1 Hour" : {
+
+    },
+    "Reminder" : {
+
+    },
+    "Reminder title" : {
+
+    },
+    "Reminders access" : {
+
+    },
+    "Reminders are still being completed" : {
+
+    },
+    "Reminders bridge" : {
+
+    },
+    "Reminders without a time" : {
+
+    },
+    "Remote access" : {
+
+    },
+    "Remote Access" : {
+
+    },
+    "Remote access is paused" : {
+
+    },
+    "Remote access isn’t set up" : {
+
+    },
+    "Remote client" : {
+
+    },
+    "Remote Macs stop syncing until you copy the new connection code to them." : {
+
+    },
+    "Remove Cloudflare Setup" : {
+
+    },
+    "Remove Cloudflare Setup…" : {
+
+    },
+    "Remove Due Date" : {
+
+    },
+    "Removing…" : {
+
+    },
+    "Rename" : {
+
+    },
+    "Replace Connection" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Retry Cleanup…" : {
+
+    },
+    "Returns the titles of reminders due today or overdue." : {
+
+    },
+    "Review" : {
+
+    },
+    "Run in the background" : {
+
+    },
+    "Sample reminders only. Nothing on this Mac is shared." : {
+
+    },
+    "Save" : {
+
+    },
+    "Saved, but the bridge didn’t answer: %@" : {
+
+    },
+    "Saving…" : {
+
+    },
+    "Search" : {
+
+    },
+    "Select some text to turn into a reminder." : {
+
+    },
+    "Selected" : {
+
+    },
+    "Send crash reports" : {
+
+    },
+    "Sends crashes, hangs, and error codes to help fix bugs. Reports never include your reminders, lists, or connection details." : {
+
+    },
+    "Set Up Cloudflare" : {
+
+    },
+    "Set Up with Cloudflare…" : {
+
+    },
+    "Set Up…" : {
+
+    },
+    "Setting Up…" : {
+
+    },
+    "Settings…" : {
+
+    },
+    "Share this Mac’s reminders" : {
+
+    },
+    "Shortcut" : {
+
+    },
+    "Show bridge status in the menu bar" : {
+
+    },
+    "Show bridge token" : {
+
+    },
+    "Show connection code" : {
+
+    },
+    "Show Info" : {
+
+    },
+    "Show List Info" : {
+
+    },
+    "Show Quick Entry in the menu bar" : {
+
+    },
+    "Show reminder count on the Dock icon" : {
+
+    },
+    "Show Sidebar" : {
+
+    },
+    "Showing reminders from your last session while Task Ferry syncs." : {
+
+    },
+    "Some resources from a previous setup still need to be removed." : {
+
+    },
+    "Starting bridge…" : {
+
+    },
+    "Status" : {
+
+    },
+    "Stored in Keychain" : {
+
+    },
+    "Subdomain:" : {
+
+    },
+    "Task Ferry" : {
+
+    },
+    "Task Ferry Bridge" : {
+
+    },
+    "Task Ferry Bridge needs attention" : {
+
+    },
+    "Task Ferry can’t reach your bridge right now and will keep trying." : {
+
+    },
+    "Task Ferry can’t reach your bridge. If you quit now, these changes will be lost." : {
+
+    },
+    "Task Ferry couldn’t find a list to add to." : {
+
+    },
+    "Task Ferry creates only its own tunnel, DNS record, and Access credentials." : {
+
+    },
+    "Task Ferry Help" : {
+
+    },
+    "Task Ferry shows your last-synced reminders the moment it opens, then refreshes them. The copy stays in this Mac’s Caches folder and is only readable by you." : {
+
+    },
+    "Task Ferry Source & License" : {
+
+    },
+    "Task Ferry will ask Cloudflare for permission, then remove the exact DNS record, Access application, service token, and tunnel it created." : {
+
+    },
+    "TASKFERRY1:…" : {
+
+    },
+    "Teal" : {
+
+    },
+    "Test Connection" : {
+
+    },
+    "Testing…" : {
+
+    },
+    "The bridge answered." : {
+
+    },
+    "The bridge didn’t answer." : {
+
+    },
+    "The bridge stops, so remote Macs can’t sync. Its Keychain items and Cloudflare setup are kept, so choosing the bridge role again restores it." : {
+
+    },
+    "The clipboard doesn’t contain a connection code." : {
+
+    },
+    "The clipboard is empty." : {
+
+    },
+    "The reminder couldn’t be added." : {
+
+    },
+    "The temporary Cloudflare authorization is revoked when setup finishes." : {
+
+    },
+    "The token is part of the connection code. A new token disconnects every remote Mac until it gets a new code." : {
+
+    },
+    "This also deletes every reminder in the list, including completed reminders. This can’t be undone." : {
+
+    },
+    "This list was removed elsewhere. Copy your draft before discarding it." : {
+
+    },
+    "This Mac" : {
+
+    },
+    "This Mac will forget its connection code and cached reminders. Your reminders stay on the bridge." : {
+
+    },
+    "This reminder was removed elsewhere. Copy your draft before discarding it." : {
+
+    },
+    "This removes Task Ferry’s resources from your own Cloudflare account." : {
+
+    },
+    "Time" : {
+
+    },
+    "Title" : {
+
+    },
+    "Today" : {
+
+    },
+    "Today & Overdue" : {
+
+    },
+    "Today’s Reminders" : {
+
+    },
+    "Tomorrow" : {
+
+    },
+    "Tomorrow Is Open" : {
+
+    },
+    "Try Again" : {
+
+    },
+    "Trying…" : {
+
+    },
+    "Type Shortcut" : {
+
+    },
+    "Undo can’t bring back everything about these reminders, such as how they repeat or their alerts." : {
+
+    },
+    "Undo can’t bring back everything about this reminder, such as how it repeats or its alerts." : {
+
+    },
+    "Unfinished Cleanup" : {
+
+    },
+    "Unknown error" : {
+
+    },
+    "Updates" : {
+
+    },
+    "Updating…" : {
+
+    },
+    "Use reminders from another Mac" : {
+
+    },
+    "Use your own Cloudflare account without installing or running the Cloudflare CLI yourself." : {
+
+    },
+    "Version %@" : {
+
+    },
+    "View" : {
+
+    },
+    "View and manage them here, from anywhere" : {
+
+    },
+    "Waiting for a shortcut" : {
+
+    },
+    "Waiting for Browser…" : {
+
+    },
+    "Welcome to Task Ferry" : {
+
+    },
+    "What needs doing?" : {
+
+    },
+    "Yellow" : {
+
+    },
+    "Yesterday" : {
+
+    },
+    "You choose the Cloudflare account and approve limited access." : {
+
+    },
+    "Your browser opens Cloudflare’s sign-in page." : {
+
+    },
+    "Your other Cloudflare resources are left alone." : {
+
+    },
+    "Your other Macs can reach this Mac’s reminders through your private connection." : {
+
+    },
+    "Your reminders appear here once Task Ferry reaches your bridge." : {
+
+    }
+  },
+  "version" : "1.0"
+}

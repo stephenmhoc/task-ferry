@@ -48,6 +48,16 @@
 			<key>UTTypeIdentifier</key>
 			<string>com.merimerimeri.TaskFerry.reminders</string>
 		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Task Ferry New Reminder</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.merimerimeri.TaskFerry.new-reminder</string>
+		</dict>
 	</array>
 </dict>
 </plist>

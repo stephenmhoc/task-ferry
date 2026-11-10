@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 @preconcurrency import UserNotifications
 
-/// Due-date alerts for a remote Mac, with Complete, Snooze, and Tomorrow actions.
+/// Due-date alerts for a remote Mac, with Mark as Completed, Snooze, and Tomorrow actions.
 ///
 /// It stays silent until the user turns it on in Settings, which is when permission is requested.
 @MainActor
@@ -39,7 +39,7 @@ final class ReminderNotificationScheduler: NSObject, UNUserNotificationCenterDel
             UNNotificationCategory(
                 identifier: Self.categoryIdentifier,
                 actions: [
-                    UNNotificationAction(identifier: Action.complete, title: String(localized: "Complete")),
+                    UNNotificationAction(identifier: Action.complete, title: String(localized: "Mark as Completed")),
                     UNNotificationAction(identifier: Action.snooze, title: String(localized: "Remind Me in 1 Hour")),
                     UNNotificationAction(identifier: Action.tomorrow, title: String(localized: "Move to Tomorrow"))
                 ],

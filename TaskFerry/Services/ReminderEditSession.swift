@@ -51,8 +51,13 @@ final class ReminderEditSession: Identifiable {
             && includesTime == (initial?.hasTime ?? false)
             && (initial == nil || dueDate == initial?.date())
         let due = untouched ? initial : (hasDue ? ReminderDue(date: dueDate, includesTime: includesTime) : nil)
-        return ReminderRecord(id: original.id, listID: listID, title: title.trimmed,
-                              notes: notes.trimmed.isEmpty ? nil : notes, due: due, url: original.url)
+        // A copy of the original, so fields the form doesn't show compare equal.
+        var record = original
+        record.listID = listID
+        record.title = title.trimmed
+        record.notes = notes.trimmed.isEmpty ? nil : notes
+        record.due = due
+        return record
     }
 
     func discard() {
@@ -105,6 +110,7 @@ extension AppState {
     /// Retains in-flight and failed drafts even after their window closes. No drafts go on disk.
     @discardableResult
     func saveEdit(_ session: ReminderEditSession, undoManager: UndoManager?) async -> Bool {
+        if session.isNew { return await saveNewReminder(session, undoManager: undoManager).saved }
         guard session.phase != .discarded else { return false }
         if let revision = session.connectionRevision, revision != connectionRevision {
             discardEdit(session)
@@ -128,13 +134,32 @@ extension AppState {
     }
 
     /// Creates the reminder a new session describes, and returns its identifier once it exists.
-    func saveNewReminder(_ session: ReminderEditSession) async -> (saved: Bool, id: String?) {
+    /// Like an edit, it's kept here while it's on its way and after it fails, so quitting waits
+    /// for it and a failure can be retried from the draft banner.
+    @discardableResult
+    func saveNewReminder(_ session: ReminderEditSession, undoManager: UndoManager?) async -> (saved: Bool, id: String?) {
+        guard session.phase != .discarded else { return (false, nil) }
+        if let revision = session.connectionRevision, revision != connectionRevision {
+            discardEdit(session)
+            return (false, nil)
+        }
+        unsavedEdits[session.id] = session
         var createdID: String?
         let saved = await session.commit { [self] value in
+            guard list(for: value.listID) != nil else {
+                return String(localized: "This list was removed elsewhere. Copy your draft before discarding it.")
+            }
             let outcome = await createReminder(title: value.title, listID: value.listID, due: value.due, notes: value.notes)
+            guard outcome.succeeded else {
+                return errorMessage ?? String(localized: "Couldn’t add this reminder. Try again.")
+            }
             createdID = outcome.createdID
-            return outcome.succeeded ? nil : errorMessage ?? String(localized: "Couldn’t add this reminder. Try again.")
+            if let id = outcome.createdID {
+                ReminderUndo.registerCreation([id], state: self, undoManager: undoManager)
+            }
+            return nil
         }
+        if saved || session.phase == .discarded { unsavedEdits[session.id] = nil }
         return (saved, createdID)
     }
 

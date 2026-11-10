@@ -1,22 +1,21 @@
 import AppKit
 import SwiftUI
 
-/// The sidebar button, and Refresh while the sidebar is open, in the title bar beside the traffic
-/// lights. A toolbar item would follow the sidebar's edge, and jump when it opens or closes.
+/// The sidebar button, in the title bar beside the traffic lights. A toolbar item would follow the
+/// sidebar's edge, and jump when it opens or closes.
 struct TitlebarButtons: NSViewRepresentable {
+    let sidebarHidden: Bool
     let toggleSidebar: () -> Void
-    var showsRefresh = false
-    var isRefreshing = false
-    var refresh: () -> Void = {}
 
     func makeCoordinator() -> Coordinator { Coordinator() }
     func makeNSView(context: Context) -> NSView { NSView() }
 
     func updateNSView(_ view: NSView, context: Context) {
-        let content = Buttons(toggleSidebar: toggleSidebar, showsRefresh: showsRefresh,
-                              isRefreshing: isRefreshing, refresh: refresh)
         let coordinator = context.coordinator
-        coordinator.show(content)
+        coordinator.show(Buttons(sidebarHidden: sidebarHidden, toggleSidebar: toggleSidebar))
+        // The button's size never changes, so the accessory is placed once per window rather
+        // than refitted on every SwiftUI update.
+        guard !coordinator.isSettled else { return }
         DispatchQueue.main.async { [weak view] in
             guard let window = view?.window else { return }
             coordinator.install(in: window)
@@ -31,6 +30,11 @@ struct TitlebarButtons: NSViewRepresentable {
     final class Coordinator {
         private var host: NSHostingView<Buttons>?
         private var accessory: NSTitlebarAccessoryViewController?
+        private var holdsSidebarWidth = false
+        private var isFitted = false
+
+        /// Installed, fitted to the title bar, and holding the sidebar's minimum width.
+        var isSettled: Bool { accessory != nil && isFitted && holdsSidebarWidth }
 
         func show(_ content: Buttons) {
             if let host {
@@ -50,23 +54,26 @@ struct TitlebarButtons: NSViewRepresentable {
             accessory = controller
         }
 
-        /// The accessory takes the view's width, so it follows Refresh appearing and leaving. The
-        /// view also spans the title bar's full height: at its natural height it sits on the bottom
+        /// The view spans the title bar's full height: at its natural height it sits on the bottom
         /// edge, below the traffic lights, instead of centered beside them.
         func fitTitlebar() {
             guard let host else { return }
+            // The title bar may not be laid out yet, so it's only fitted once it has a height.
+            if let height = host.superview?.bounds.height, height > 0 { isFitted = true }
             let height = host.superview?.bounds.height ?? host.fittingSize.height
             let size = NSSize(width: host.fittingSize.width, height: max(height, host.fittingSize.height))
             if host.frame.size != size { host.frame = NSRect(origin: .zero, size: size) }
         }
 
         /// SwiftUI's column minimum doesn't stop a drag, so the split view is told directly. The
-        /// buttons sit over the sidebar, and it can't get narrower than the end of them.
+        /// button sits over the sidebar, and it can't get narrower than the end of it. Done once
+        /// the split view exists; until then, the next update tries again.
         func holdSidebarWidth(in window: NSWindow) {
-            guard let host, let contentView = window.contentView,
+            guard !holdsSidebarWidth, let host, let contentView = window.contentView,
                   let sidebar = Self.splitController(in: contentView)?.splitViewItems.first else { return }
             let buttonsEnd = host.convert(host.bounds, to: nil).maxX
             sidebar.minimumThickness = max(220, buttonsEnd + 16)
+            holdsSidebarWidth = true
         }
 
         private static func splitController(in view: NSView) -> NSSplitViewController? {
@@ -82,31 +89,18 @@ struct TitlebarButtons: NSViewRepresentable {
         func remove() {
             accessory?.removeFromParent()
             accessory = nil
+            holdsSidebarWidth = false
+            isFitted = false
         }
     }
 
     struct Buttons: View {
+        let sidebarHidden: Bool
         let toggleSidebar: () -> Void
-        let showsRefresh: Bool
-        let isRefreshing: Bool
-        let refresh: () -> Void
 
         var body: some View {
-            HStack(spacing: 8) {
-                button("sidebar.left", label: "Toggle Sidebar", help: "Show or hide the sidebar (⌃⌘S)", action: toggleSidebar)
-                if showsRefresh {
-                    button("arrow.clockwise", label: "Refresh", help: "Refresh reminders (⌘R)", action: refresh)
-                        .symbolEffect(.rotate, isActive: isRefreshing)
-                        .disabled(isRefreshing)
-                }
-            }
-            .padding(.horizontal, 6)
-            .frame(maxHeight: .infinity)
-        }
-
-        private func button(_ icon: String, label: LocalizedStringKey, help: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-            Button(action: action) {
-                Image(systemName: icon)
+            Button(action: toggleSidebar) {
+                Image(systemName: "sidebar.left")
                     .font(.system(size: 15))
                     .foregroundStyle(.primary)
                     .frame(width: 24, height: 24)
@@ -114,8 +108,10 @@ struct TitlebarButtons: NSViewRepresentable {
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
             .controlSize(.large)
-            .help(help)
-            .accessibilityLabel(label)
+            .help(sidebarHidden ? "Show Sidebar" : "Hide Sidebar")
+            .accessibilityLabel(sidebarHidden ? "Show Sidebar" : "Hide Sidebar")
+            .padding(.horizontal, 6)
+            .frame(maxHeight: .infinity)
         }
     }
 }

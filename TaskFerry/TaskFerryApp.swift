@@ -22,17 +22,21 @@ struct TaskFerryApp: App {
         .defaultSize(width: state.mode == .remote ? WorkspaceSize.width : 520, height: state.mode == .remote ? WorkspaceSize.height : 480)
         .windowResizability(.contentMinSize)
         .windowToolbarStyle(.unified(showsTitle: false))
+        // A bridge that runs in the background opens no window at launch.
+        .defaultLaunchBehavior(TaskFerryApplicationDelegate.shouldRunHidden ? .suppressed : .automatic)
         .commands {
             TaskFerryCommands(state: state)
         }
 
-        MenuBarExtra("Quick Reminder", systemImage: "plus.circle", isInserted: quickEntryIsInserted) {
+        MenuBarExtra("Quick Entry", systemImage: "ferry", isInserted: quickEntryIsInserted) {
             QuickEntryView(state: state, style: .menuBar)
         }
         .menuBarExtraStyle(.window)
 
-        MenuBarExtra("Task Ferry Bridge", systemImage: "antenna.radiowaves.left.and.right", isInserted: bridgeStatusIsInserted) {
+        MenuBarExtra(isInserted: bridgeStatusIsInserted) {
             BridgeStatusMenu(state: state)
+        } label: {
+            BridgeStatusIcon(state: state)
         }
         .menuBarExtraStyle(.menu)
 
@@ -75,10 +79,15 @@ struct WorkspaceActions {
     var show: (NavigationRequest.Destination) -> Void
     var lists: [ReminderListRecord]
     var hasSelection: Bool
-    var editSelection: () -> Void
+    /// Show Info is for one reminder at a time.
+    var hasSingleSelection: Bool
+    var selectedList: ReminderListRecord?
+    var showInfo: () -> Void
     var completeSelection: () -> Void
     var rescheduleSelection: (QuickDueOption) -> Void
     var moveSelection: (String) -> Void
+    var showListInfo: () -> Void
+    var deleteList: () -> Void
 }
 
 private struct WorkspaceActionsKey: FocusedValueKey {
@@ -104,6 +113,7 @@ private struct TaskFerryCommands: Commands {
     var body: some Commands {
         let _ = WindowRouter.shared.install(openWindow)
 
+        // Not SidebarCommands: the sidebar button is Task Ferry's own, fixed in the title bar.
         CommandGroup(replacing: .sidebar) {
             Button(actions?.sidebarHidden == true ? "Show Sidebar" : "Hide Sidebar") {
                 actions?.toggleSidebar()
@@ -111,7 +121,6 @@ private struct TaskFerryCommands: Commands {
             .keyboardShortcut("s", modifiers: [.control, .command])
             .disabled(actions == nil)
         }
-        ToolbarCommands()
 
         CommandGroup(after: .appInfo) {
             CheckForUpdatesButton()
@@ -135,7 +144,7 @@ private struct TaskFerryCommands: Commands {
             .keyboardShortcut("n", modifiers: [.command, .shift])
             .disabled(actions == nil)
 
-            Button("Quick Reminder…") {
+            Button("Quick Entry…") {
                 QuickEntryPanelController.shared.show(state: state, restoresWorkspaceFocus: true)
             }
             .disabled(state.mode != .remote)
@@ -147,6 +156,13 @@ private struct TaskFerryCommands: Commands {
             }
             .keyboardShortcut("n", modifiers: [.command, .option])
             .disabled(state.mode != .remote)
+
+            Divider()
+
+            Button("Show List Info") { actions?.showListInfo() }
+                .disabled(actions?.selectedList == nil)
+            Button("Delete List…") { actions?.deleteList() }
+                .disabled(actions?.selectedList == nil)
         }
 
         CommandGroup(after: .textEditing) {
@@ -181,11 +197,11 @@ private struct TaskFerryCommands: Commands {
         }
 
         CommandMenu("Reminder") {
-            Button("Show Info") { actions?.editSelection() }
+            Button("Show Info") { actions?.showInfo() }
                 .keyboardShortcut("i", modifiers: .command)
-                .disabled(actions?.hasSelection != true)
+                .disabled(actions?.hasSingleSelection != true)
             Button("Mark as Completed") { actions?.completeSelection() }
-                .keyboardShortcut("k", modifiers: .command)
+                .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(actions?.hasSelection != true)
             Divider()
             Button("Due Today") { actions?.rescheduleSelection(.today) }
@@ -204,10 +220,20 @@ private struct TaskFerryCommands: Commands {
             .disabled(actions?.hasSelection != true)
         }
 
+        CommandGroup(before: .windowList) {
+            // Brings the window back after it's been closed, when only the menu bar is left.
+            Button("Task Ferry") {
+                WindowRouter.shared.showMainWindow()
+            }
+            .keyboardShortcut("0", modifiers: .command)
+            Divider()
+        }
+
         CommandGroup(replacing: .help) {
             Button("Task Ferry Help") {
                 openURL(Self.helpURL)
             }
+            .keyboardShortcut("?", modifiers: .command)
             Link("Task Ferry Source & License", destination: Self.sourceURL)
         }
     }
@@ -246,7 +272,7 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Decide the Dock presence before anything is drawn, so a background bridge never flashes
         // a Dock icon or window.
-        if shouldRunHidden {
+        if Self.shouldRunHidden {
             NSApp.setActivationPolicy(.accessory)
         }
         // Notification actions chosen while the app wasn't running arrive during launch, so the
@@ -275,7 +301,8 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
         servicesProvider = ServicesProvider(state: state)
         if !state.isDemo { NSApp.servicesProvider = servicesProvider }
 
-        if shouldRunHidden {
+        if Self.shouldRunHidden {
+            // The scene opens no window at launch, but macOS can still restore one from last time.
             DispatchQueue.main.async {
                 NSApp.windows.filter { $0.canBecomeMain }.forEach { $0.orderOut(nil) }
             }
@@ -337,7 +364,7 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
         guard state.mode == .remote else { return nil }
         let menu = NSMenu()
         menu.addItem(item(String(localized: "New Reminder"), action: #selector(dockNewReminder)))
-        menu.addItem(item(String(localized: "Quick Reminder…"), action: #selector(dockQuickReminder)))
+        menu.addItem(item(String(localized: "Quick Entry…"), action: #selector(dockQuickReminder)))
 
         let today = state.todayReminders.prefix(10)
         if !today.isEmpty {
@@ -402,7 +429,8 @@ final class TaskFerryApplicationDelegate: NSObject, NSApplicationDelegate {
         state.navigate(to: .reminder(id))
     }
 
-    private var shouldRunHidden: Bool {
+    /// Read from preferences directly, since it's needed before AppState and the first window.
+    static var shouldRunHidden: Bool {
         guard !TaskFerryRuntime.isDemo else { return false }
         return UserDefaults.standard.string(forKey: AppPreferences.mode) == AppMode.bridge.rawValue
             && UserDefaults.standard.bool(forKey: AppPreferences.runsInBackground)

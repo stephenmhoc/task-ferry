@@ -42,6 +42,18 @@ final class ProtocolTests: XCTestCase {
         XCTAssertEqual(decoded.reminders.first?.notes, "Ask about the new office.")
     }
 
+    func testUndoFieldsAreOptionalForOlderBridgesAndRemotes() throws {
+        let record = try JSONDecoder().decode(ReminderRecord.self, from: Data(
+            #"{"id":"abc","listID":"personal","title":"Pay rent","due":null}"#.utf8
+        ))
+        XCTAssertNil(record.hasUnrestorableDetails, "an older bridge can't say, so the remote asks before deleting")
+
+        let request = RPCRequest(operation: .upsertReminder, title: "Read", listID: "personal",
+                                 url: URL(string: "https://example.com"))
+        let decoded = try JSONDecoder().decode(RPCRequest.self, from: JSONEncoder().encode(request))
+        XCTAssertEqual(decoded.url, URL(string: "https://example.com"))
+    }
+
     func testReminderWithoutNotesRemainsDecodable() throws {
         let data = Data(
             #"{"lists":[],"reminders":[{"id":"abc","listID":"personal","title":"Call dentist","due":null}]}"#.utf8

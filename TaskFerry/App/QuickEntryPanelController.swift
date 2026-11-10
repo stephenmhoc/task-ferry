@@ -56,24 +56,24 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
         }
         // A nonactivating panel borrows keyboard focus from another process. Avoid that
         // machinery for our own File/Dock command, where ordinary window focus is correct.
-        var style: NSWindow.StyleMask = [.titled, .fullSizeContentView]
+        // Borderless and clear, so the glass the view draws is the whole panel, as in Spotlight.
+        var style: NSWindow.StyleMask = [.borderless, .fullSizeContentView]
         if !invokedFromWorkspace { style.insert(.nonactivatingPanel) }
         let panel = QuickEntryPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 240),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 120),
             styleMask: style,
             backing: .buffered,
             defer: false
         )
-        panel.titlebarAppearsTransparent = true
-        panel.titleVisibility = .hidden
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.animationBehavior = .utilityWindow
         panel.isMovableByWindowBackground = true
         panel.level = .floating
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
-        for button: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
-            panel.standardWindowButton(button)?.isHidden = true
-        }
         panel.onCancel = { [weak self] in self?.finish() }
         panel.delegate = self
         let hostingView = NSHostingView(rootView: QuickEntryView(
@@ -84,8 +84,8 @@ final class QuickEntryPanelController: NSObject, NSWindowDelegate {
             initialListID: opening.listID,
             initialDue: opening.due,
             onFinish: { [weak self] in self?.finish() },
-            onDraftChange: { [weak self] title, listID, due in
-                self?.draft = title.isEmpty ? nil : Draft(title: title, notes: opening.notes, listID: listID, due: due)
+            onDraftChange: { [weak self] title, notes, listID, due in
+                self?.draft = title.isEmpty ? nil : Draft(title: title, notes: notes.isEmpty ? nil : notes, listID: listID, due: due)
             },
             onSubmittingChange: { [weak self] in self?.isSubmitting = $0 }
         ))

@@ -11,8 +11,12 @@ final class ReminderLinksTests: XCTestCase {
             return String(attributed[run.range].characters)
         }
         XCTAssertEqual(links, ["https://example.com/path?q=1&b=2", "www.apple.com"])
-        XCTAssertEqual(ReminderLinks.urls(title: text, notes: nil).map(\.absoluteString),
-                       ["https://example.com/path?q=1&b=2", "http://www.apple.com"])
+        // Newer data detectors assume https for a bare www address; older ones assume http.
+        let urls = ReminderLinks.urls(title: text, notes: nil)
+        XCTAssertEqual(urls.map(\.absoluteString).first, "https://example.com/path?q=1&b=2")
+        XCTAssertEqual(urls.count, 2)
+        XCTAssertEqual(urls.last?.host(), "www.apple.com")
+        XCTAssertTrue(["http", "https"].contains(urls.last?.scheme ?? ""))
     }
 
     func testMenusIncludeTruncatedLinksAndDeduplicateDestinations() {

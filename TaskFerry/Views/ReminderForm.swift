@@ -1,12 +1,7 @@
 import SwiftUI
 
-@MainActor
-func reminderEscapeEventTimestamp() -> TimeInterval? {
-    guard let event = NSApp.currentEvent, event.type == .keyDown, event.keyCode == 53 else { return nil }
-    return event.timestamp
-}
-
-/// Creating and editing a reminder are the same form, shown in a popover like a Calendar event.
+/// Show Info: a reminder's date, time, list, and notes, in a popover like Reminders' info
+/// popover. Changes are kept however it closes, because each one can be undone.
 struct ReminderForm: View {
     private enum Field: Hashable { case title, notes }
     let state: AppState
@@ -14,8 +9,8 @@ struct ReminderForm: View {
     /// Only for a reminder that already exists.
     var onComplete: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
-    let onSave: () -> Void
-    let onCancel: () -> Void
+    /// Saves and closes. Closing it any other way, with Esc or a click elsewhere, saves too.
+    let onDone: () -> Void
     @FocusState private var focusedField: Field?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -45,7 +40,6 @@ struct ReminderForm: View {
         .frame(width: 360)
         .disabled(session.phase == .saving)
         .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: session.hasDue)
-        .onExitCommand(perform: onCancel)
         .task {
             // A popover's window isn't key until it has appeared.
             await Task.yield()
@@ -58,7 +52,7 @@ struct ReminderForm: View {
             if let onComplete {
                 Button(action: onComplete) {
                     Image(systemName: "circle")
-                        .font(.system(size: 18))
+                        .font(.title3)
                         .foregroundStyle(Color(hex: state.list(for: session.listID)?.colorHex ?? TaskFerryPalette.defaultListHex))
                 }
                 .buttonStyle(.plain)
@@ -72,22 +66,25 @@ struct ReminderForm: View {
                     .font(.title3.weight(.semibold))
                     .lineLimit(1...4)
                     .focused($focusedField, equals: .title)
-                    .onSubmit(onSave)
+                    .onSubmit(onDone)
                     .accessibilityLabel("Reminder title")
-                ZStack(alignment: .topLeading) {
-                    if session.notes.isEmpty {
-                        Text("Notes")
-                            .foregroundStyle(.tertiary)
-                            .allowsHitTesting(false)
+                // A text editor, so Return starts a new line in the notes rather than closing.
+                TextEditor(text: $session.notes)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    // Its text sits inset by the line padding; this lines it up with the title.
+                    .padding(.leading, -5)
+                    .frame(minHeight: 60, maxHeight: 110)
+                    .focused($focusedField, equals: .notes)
+                    .overlay(alignment: .topLeading) {
+                        if session.notes.isEmpty {
+                            Text("Notes")
+                                .foregroundStyle(Color(nsColor: .placeholderTextColor))
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
                     }
-                    TextEditor(text: $session.notes)
-                        .scrollContentBackground(.hidden)
-                        .padding(.horizontal, -5)
-                        .focused($focusedField, equals: .notes)
-                        .accessibilityLabel("Notes")
-                }
-                .font(.body)
-                .frame(height: 64)
+                    .accessibilityLabel("Notes")
             }
         }
     }
@@ -151,11 +148,10 @@ struct ReminderForm: View {
                 .fixedSize()
             Spacer()
             if session.phase == .saving { ProgressView().controlSize(.small) }
-            Button("Cancel", action: onCancel)
-                .keyboardShortcut(.cancelAction)
-            Button(session.isNew ? "Add" : "Save", action: onSave)
+            // Return belongs to the notes while they're being typed, so there Done is ⌘Return.
+            Button("Done", action: onDone)
                 .buttonStyle(.borderedProminent)
-                .keyboardShortcut(.return, modifiers: .command)
+                .keyboardShortcut(focusedField == .notes ? KeyboardShortcut(.return, modifiers: .command) : .defaultAction)
                 .disabled(session.title.trimmed.isEmpty)
         }
         .padding(.horizontal, 20)

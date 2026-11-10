@@ -119,6 +119,56 @@ final class ReminderEditSessionTests: XCTestCase {
         XCTAssertEqual(state.reminder(for: session.original.id)?.title, "Second")
     }
 
+    func testFieldsTheFormDoesNotShowDoNotCountAsChanges() async {
+        let state = AppState(isDemo: true)
+        await state.refresh()
+        let reminder = state.snapshot.reminders[0]
+        XCTAssertEqual(reminder.hasUnrestorableDetails, false)
+        XCTAssertFalse(ReminderEditSession(reminder).hasUnsavedChanges)
+    }
+
+    func testQuittingSavesANewReminderStillBeingTyped() async {
+        let state = AppState(isDemo: true)
+        await state.refresh()
+        let session = ReminderEditSession(newIn: "work", due: nil, connectionRevision: state.connectionRevision)
+        session.title = "Typed before quitting"
+        state.openEdits[session.id] = session
+        let unsaved = await state.finishEdits()
+        XCTAssertTrue(unsaved.isEmpty)
+        XCTAssertTrue(state.snapshot.reminders.contains { $0.title == "Typed before quitting" })
+        let again = await state.finishEdits()
+        XCTAssertTrue(again.isEmpty)
+        XCTAssertEqual(state.snapshot.reminders.filter { $0.title == "Typed before quitting" }.count, 1)
+    }
+
+    func testAFailedNewReminderWaitsForRetry() async {
+        let state = AppState(isDemo: true, demoScenario: .mutationFailure)
+        await state.refresh()
+        let session = ReminderEditSession(newIn: "work", due: nil, connectionRevision: state.connectionRevision)
+        session.title = "Try again"
+        let first = await state.saveNewReminder(session, undoManager: nil)
+        XCTAssertFalse(first.saved)
+        XCTAssertEqual(state.unsavedEdits[session.id]?.phase, .failed, "the draft banner offers it")
+        let retried = await state.saveEdit(session, undoManager: nil)
+        XCTAssertTrue(retried)
+        XCTAssertNil(state.unsavedEdits[session.id])
+        XCTAssertTrue(state.snapshot.reminders.contains { $0.title == "Try again" })
+    }
+
+    func testANewReminderFromAnotherConnectionIsNotSaved() async throws {
+        let state = AppState(isDemo: true, snapshotCache: .disabled)
+        await state.refresh()
+        let session = ReminderEditSession(newIn: "work", due: nil, connectionRevision: state.connectionRevision)
+        session.title = "From before"
+        try await state.saveRemoteConfiguration(endpoint: "https://other.example.com", clientID: "",
+                                                clientSecret: "", bridgeToken: "OTHER")
+        await state.refresh()
+        let result = await state.saveNewReminder(session, undoManager: nil)
+        XCTAssertFalse(result.saved)
+        XCTAssertEqual(session.phase, .discarded)
+        XCTAssertFalse(state.snapshot.reminders.contains { $0.title == "From before" })
+    }
+
     func testQuittingReportsAnEditThatCouldNotSave() async {
         let state = AppState(isDemo: true, demoScenario: .mutationFailure)
         await state.refresh()

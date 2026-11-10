@@ -7,24 +7,27 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            GeneralSettingsPane(state: state)
-                .tabItem { Label("General", systemImage: "gearshape") }
-
-            switch state.mode {
-            case .remote:
-                ConnectionSettingsPane(state: state)
-                    .tabItem { Label("Connection", systemImage: "link") }
-                NotificationSettingsPane(state: state)
-                    .tabItem { Label("Notifications", systemImage: "bell.badge") }
-            case .bridge:
-                BridgeSettingsPane(state: state)
-                    .tabItem { Label("Bridge", systemImage: "antenna.radiowaves.left.and.right") }
-            case nil:
-                EmptyView()
+            Tab("General", systemImage: "gearshape") {
+                GeneralSettingsPane(state: state)
             }
 
-            AdvancedSettingsPane(state: state)
-                .tabItem { Label("Advanced", systemImage: "slider.horizontal.3") }
+            if state.mode == .remote {
+                Tab("Connection", systemImage: "link") {
+                    ConnectionSettingsPane(state: state)
+                }
+                Tab("Notifications", systemImage: "bell.badge") {
+                    NotificationSettingsPane(state: state)
+                }
+            }
+            if state.mode == .bridge {
+                Tab("Bridge", systemImage: "antenna.radiowaves.left.and.right") {
+                    BridgeSettingsPane(state: state)
+                }
+            }
+
+            Tab("Advanced", systemImage: "slider.horizontal.3") {
+                AdvancedSettingsPane(state: state)
+            }
         }
         .frame(width: 540)
     }
@@ -56,6 +59,7 @@ private struct GeneralSettingsPane: View {
     @AppStorage(AppPreferences.showsQuickEntryInMenuBar) private var showsQuickEntry = true
     @AppStorage(AppPreferences.showsBridgeStatusInMenuBar) private var showsBridgeStatus = true
     @AppStorage(AppPreferences.quickEntryHotKeyEnabled) private var hotKeyEnabled = false
+    @State private var hotKey = GlobalHotKey.shared
     @State private var sendsCrashReports = CrashReporting.isEnabled
 
     var body: some View {
@@ -68,7 +72,7 @@ private struct GeneralSettingsPane: View {
                 .disabled(loginItem.isUpdating)
                 if loginItem.requiresApproval {
                     LabeledContent {
-                        Button("Open Login Items…") {
+                        Button("Open Login Items") {
                             SMAppService.openSystemSettingsLoginItems()
                         }
                     } label: {
@@ -100,11 +104,21 @@ private struct GeneralSettingsPane: View {
                 }
 
                 Section("Quick Entry") {
-                    Toggle("Show Quick Reminder in the menu bar", isOn: $showsQuickEntry)
-                    Toggle("Open Quick Entry with \(GlobalHotKey.displayString)", isOn: $hotKeyEnabled)
+                    Toggle("Show Quick Entry in the menu bar", isOn: $showsQuickEntry)
+                    Toggle("Open Quick Entry with a keyboard shortcut", isOn: $hotKeyEnabled)
                         .onChange(of: hotKeyEnabled) { _, _ in
-                            GlobalHotKey.shared.applyPreference()
+                            hotKey.applyPreference()
                         }
+                    LabeledContent("Shortcut") {
+                        ShortcutRecorder(shortcut: hotKey.shortcut) { hotKey.setShortcut($0) }
+                    }
+                    .disabled(!hotKeyEnabled)
+                    if hotKeyEnabled, let error = hotKey.registrationError {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .font(.callout)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     Text(state.isDemo ? "Demo mode does not register a system shortcut or Services provider." : "Quick Entry is also in the Services menu of other apps, as New Task Ferry Reminder.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -341,7 +355,7 @@ private struct ConnectionSettingsPane: View {
             connectionCode = ""
             connectionCodeRevealed = false
             if await state.refresh() {
-                message = state.isDemo ? String(localized: "Demo connection ready. Nothing was saved to Keychain.") : String(localized: "Connected. The connection is stored in your keychain.")
+                message = state.isDemo ? String(localized: "Demo connection ready. Nothing was saved to Keychain.") : String(localized: "Connected. The connection is stored in your Keychain.")
             } else {
                 messageIsError = true
                 message = String(localized: "Saved, but the bridge didn’t answer: \(state.errorMessage ?? String(localized: "Unknown error"))")
@@ -540,16 +554,20 @@ private struct NotificationSettingsPane: View {
     @AppStorage(AppPreferences.notifiesWhenDue) private var notifiesWhenDue = false
     @AppStorage(AppPreferences.dateOnlyNotificationHour) private var dateOnlyHour = 9
     @State private var message: String?
+    /// What the toggle shows while macOS asks for permission, so it doesn't snap back meanwhile.
+    @State private var requestedValue: Bool?
 
     var body: some View {
         SettingsPane {
             Section {
                 Toggle("Alert me when reminders are due", isOn: Binding(
-                    get: { notifiesWhenDue },
+                    get: { requestedValue ?? notifiesWhenDue },
                     set: { enabled in
+                        requestedValue = enabled
                         Task {
                             let granted = await ReminderNotificationScheduler.shared.setEnabled(enabled)
                             notifiesWhenDue = enabled && granted
+                            requestedValue = nil
                             message = enabled && !granted
                                 ? String(localized: "Allow notifications for Task Ferry in System Settings → Notifications.")
                                 : nil
@@ -563,12 +581,12 @@ private struct NotificationSettingsPane: View {
                             .tag(hour)
                     }
                 }
-                .disabled(!notifiesWhenDue)
+                .disabled(!(requestedValue ?? notifiesWhenDue))
                 .onChange(of: dateOnlyHour) { _, hour in
                     ReminderNotificationScheduler.shared.setDateOnlyHour(hour)
                 }
             } footer: {
-                Text(state.isDemo ? "Demo only. No notification permission is requested and no alerts are scheduled." : "Get alerts on this Mac for reminders from your bridge. Task Ferry schedules the next two weeks, with Complete, Remind Me in 1 Hour, and Move to Tomorrow actions.")
+                Text(state.isDemo ? "Demo only. No notification permission is requested and no alerts are scheduled." : "Get alerts on this Mac for reminders from your bridge. Task Ferry schedules the next two weeks, with Mark as Completed, Remind Me in 1 Hour, and Move to Tomorrow actions.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

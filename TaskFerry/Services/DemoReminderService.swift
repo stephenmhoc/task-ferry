@@ -48,6 +48,8 @@ final class DemoReminderService: ReminderService {
             value.reminders[0].notes = String(repeating: "Detailed planning notes for review.\n", count: 8)
             value.reminders += (5...45).map { ReminderRecord(id: String($0), listID: "work", title: "Planning task \($0)", due: today) }
         }
+        // Like a current bridge, the demo says which reminders Undo can restore in full.
+        for index in value.reminders.indices { value.reminders[index].hasUnrestorableDetails = false }
     }
 
     func execute(_ request: RPCRequest) async throws -> RPCResult {
@@ -105,6 +107,7 @@ final class DemoReminderService: ReminderService {
                 }
                 value.reminders[index].listID = listID
                 value.reminders[index].due = request.due
+                if let url = request.url { value.reminders[index].url = url }
             } else {
                 let id = UUID().uuidString
                 value.reminders.append(ReminderRecord(
@@ -112,7 +115,9 @@ final class DemoReminderService: ReminderService {
                     listID: listID,
                     title: title,
                     notes: request.notes.flatMap { $0.trimmed.isEmpty ? nil : $0 },
-                    due: request.due
+                    due: request.due,
+                    url: request.url,
+                    hasUnrestorableDetails: false
                 ))
                 createdID = id
             }

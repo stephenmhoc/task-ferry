@@ -14,6 +14,10 @@ settings:
     SWIFT_TREAT_WARNINGS_AS_ERRORS: true
     CURRENT_PROJECT_VERSION: 1
     MARKETING_VERSION: 0.2.0
+    # Lets Xcode gather user-facing strings into TaskFerry/Localizable.xcstrings. A plain build doesn't
+    # write them back: an IDE build or `xcodebuild -exportLocalizations -scheme TaskFerry` does.
+    SWIFT_EMIT_LOC_STRINGS: true
+    LOCALIZATION_PREFERS_STRING_CATALOGS: true
     CODE_SIGN_STYLE: Automatic
     TASK_FERRY_CLOUDFLARE_OAUTH_CLIENT_ID: "fcb358ecbd170213ce612c27de3b4cad"
 packages:

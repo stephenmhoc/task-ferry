@@ -7,7 +7,7 @@ A small, private Mac app that ferries Apple Reminders between your personal and 
 <p align="center">
   <img src="docs/screenshots/task-ferry-main.png" alt="Task Ferry showing today's reminders" width="560">
   <br>
-  <img src="docs/screenshots/task-ferry-quick-entry.png" alt="Task Ferry menu-bar quick entry" width="340">
+  <img src="docs/screenshots/task-ferry-quick-entry.png" alt="Task Ferry Quick Entry" width="420">
 </p>
 
 - **Bridge** on the personal Mac mini: reads and writes Reminders with EventKit and serves one authenticated loopback endpoint.
@@ -122,21 +122,25 @@ Task Ferry behaves like Reminders:
 | --- | --- |
 | New reminder / new list / new window | ⌘N / ⇧⌘N / ⌥⌘N |
 | Today / Tomorrow / All Reminders | ⌘1 / ⌘2 / ⌘3 |
-| Edit the selected reminder | Return, double-click, or ⌘I |
-| Save edits / discard edits | Return (or click elsewhere) / Esc |
-| Mark as Completed | ⌘K |
+| Rename the selected reminder or list in place | Return or double-click |
+| Save / cancel a rename or new reminder | Return (or click elsewhere) / Esc |
+| Show Info (date, time, list, notes) | ⌘I |
+| Mark as Completed | ⇧⌘C |
 | Due Today / Due Tomorrow | ⌘T / ⌥⌘T |
 | Delete | Delete key |
-| Undo / Redo (complete, edit, move, reschedule) | ⌘Z / ⇧⌘Z |
-| Find | ⌘F |
+| Undo / Redo (create, delete, complete, edit, move, reschedule) | ⌘Z / ⇧⌘Z |
+| Find in all reminders | ⌘F |
 | Refresh | ⌘R |
-| Quick Entry from anywhere (optional, in Settings) | ⌃⇧Space |
+| Bring back the main window | ⌘0 |
+| Quick Entry from anywhere (optional, and changeable, in Settings) | ⌃⇧Space |
 
+- **Adding:** click the + button, or press ⌘N, and type into the new row at the end of the list. Return adds it and starts the next one. Drag the + button onto a list in the sidebar to start the reminder there.
+- **Deleting:** reminders are deleted without asking, and Undo brings them back with their title, notes, list, and due date (as new reminders, without a link). Deleting a list asks first and can't be undone.
 - **Selecting and moving:** select several reminders with ⌘-click or ⇧-click. Drag them onto a list to move them, or onto Today or Tomorrow to reschedule them. Copy and paste them as text. Pasting or dropping text creates one reminder per line.
-- **Quick Entry:** in the menu bar, in the Dock menu, and in every app's **Services** menu as **New Task Ferry Reminder**.
+- **Quick Entry:** in the menu bar, in the Dock menu, in File ▸ Quick Entry, and in every app's **Services** menu as **New Task Ferry Reminder**, which shows any text after the first line as notes.
 - **Shortcuts, Siri, and Spotlight:** **Add Reminder**, **Get Today's Reminders**, and **Open Reminders View**.
 - **URL scheme:** `taskferry://add?title=…&list=…&due=today|tomorrow&notes=…` opens a prefilled Quick Entry to confirm, since any web page can open a URL. Also available: `taskferry://show/today|tomorrow|all`, `taskferry://show/list/<name or id>`, and `taskferry://reminder/<id>`. Connection codes are never accepted by URL.
-- **Due-date alerts:** optional, under Settings → Notifications. They fire on the remote Mac, which isn't signed in to your personal iCloud account, and offer Complete, Remind Me in 1 Hour, and Move to Tomorrow actions.
+- **Due-date alerts:** optional, under Settings → Notifications. They fire on the remote Mac, which isn't signed in to your personal iCloud account, and offer Mark as Completed, Remind Me in 1 Hour, and Move to Tomorrow actions.
 - **Instant launch:** a remote Mac keeps a read-only copy of its last snapshot in its Caches folder, readable only by you, and shows it in the first frame while it syncs. Nothing is ever written back from that copy. Turn it off under Settings → Connection.
 - **Background bridge:** a bridge running in the background has no Dock icon, but its menu bar item always offers Open, Copy Connection Code, Settings, and Quit.
 

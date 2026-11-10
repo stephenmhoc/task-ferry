@@ -28,6 +28,7 @@ struct ListEditorSheet: View {
     @State private var isSaving = false
     @State private var isDeleting = false
     @State private var confirmingDelete = false
+    @State private var error: String?
     @FocusState private var titleIsFocused: Bool
 
     init(state: AppState, context: ListEditorContext, onCreate: @escaping (String) -> Void = { _ in }) {
@@ -42,7 +43,7 @@ struct ListEditorSheet: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) {
                 Image(systemName: "list.bullet.circle.fill")
-                    .font(.system(size: 34))
+                    .font(.largeTitle)
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(Color(hex: colorHex))
                     .accessibilityHidden(true)
@@ -50,43 +51,20 @@ struct ListEditorSheet: View {
                     .font(.title2.weight(.semibold))
             }
 
-            if let error = state.errorMessage {
-                ErrorBanner(message: error) { state.dismissError() }
+            // Only this sheet's own failures. Sync errors stay in the window's banner.
+            if let error {
+                ErrorBanner(message: error) { self.error = nil }
             }
 
-            VStack(alignment: .leading, spacing: 14) {
-                TextField("Name:", text: $title)
+            Form {
+                TextField("Name:", text: $title, prompt: Text("List Name"))
                     .focused($titleIsFocused)
                     .onSubmit(save)
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Color")
-                    HStack(spacing: 2) {
-                        ForEach(TaskFerryPalette.listColors, id: \.hex) { option in
-                            Button {
-                                colorHex = option.hex
-                            } label: {
-                                Circle()
-                                    .fill(Color(hex: option.hex))
-                                    .frame(width: 20, height: 20)
-                                    .overlay {
-                                        if colorHex == option.hex {
-                                            Circle().strokeBorder(.primary, lineWidth: 2).padding(-3)
-                                        }
-                                    }
-                                    .frame(width: 32, height: 32)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .help(Text(option.name))
-                            .accessibilityLabel(Text(option.name))
-                            .accessibilityValue(colorHex == option.hex ? Text("Selected") : Text("Not selected"))
-                            .accessibilityAddTraits(colorHex == option.hex ? .isSelected : [])
-                        }
-                    }
-                    .accessibilityElement(children: .contain)
+                LabeledContent("Color:") {
+                    swatches
                 }
             }
+            .formStyle(.columns)
 
             Text("Lists stay in sync with Apple Reminders.")
                 .font(.callout)
@@ -106,10 +84,7 @@ struct ListEditorSheet: View {
                     .keyboardShortcut(.cancelAction)
                     .disabled(isSaving || isDeleting)
 
-                Button(action: save) {
-                    Text(isSaving ? "Saving…" : (context.list == nil ? "Create" : "Save"))
-                        .padding(.horizontal, 12)
-                }
+                Button(isSaving ? "Saving…" : (context.list == nil ? "Create" : "Save"), action: save)
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
                     .disabled(isSaving || isDeleting || title.trimmed.isEmpty)
@@ -127,10 +102,38 @@ struct ListEditorSheet: View {
         }
     }
 
+    private var swatches: some View {
+        HStack(spacing: 2) {
+            ForEach(TaskFerryPalette.listColors, id: \.hex) { option in
+                Button {
+                    colorHex = option.hex
+                } label: {
+                    Circle()
+                        .fill(Color(hex: option.hex))
+                        .frame(width: 18, height: 18)
+                        .overlay {
+                            if colorHex == option.hex {
+                                Circle().strokeBorder(.primary, lineWidth: 2).padding(-3)
+                            }
+                        }
+                        .frame(width: 26, height: 26)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(Text(option.name))
+                .accessibilityLabel(Text(option.name))
+                .accessibilityValue(colorHex == option.hex ? Text("Selected") : Text("Not selected"))
+                .accessibilityAddTraits(colorHex == option.hex ? .isSelected : [])
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
     private func save() {
         let cleanTitle = title.trimmed
         guard !cleanTitle.isEmpty, !isSaving, !isDeleting else { return }
         isSaving = true
+        error = nil
         Task {
             let succeeded: Bool
             if let list = context.list {
@@ -145,6 +148,7 @@ struct ListEditorSheet: View {
             if succeeded {
                 dismiss()
             } else {
+                error = state.errorMessage ?? String(localized: "Couldn’t save this list. Try again.")
                 isSaving = false
             }
         }
@@ -153,10 +157,12 @@ struct ListEditorSheet: View {
     private func deleteList() {
         guard let list = context.list, !isDeleting, !isSaving else { return }
         isDeleting = true
+        error = nil
         Task {
             if await state.deleteList(list) {
                 dismiss()
             } else {
+                error = state.errorMessage ?? String(localized: "Couldn’t delete this list. Try again.")
                 isDeleting = false
             }
         }

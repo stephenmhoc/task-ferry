@@ -26,7 +26,7 @@ struct CloudflareSetupView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(isCleanup ? "Finish Cloudflare cleanup" : (isRemoval ? "Remove Cloudflare setup" : "Set up Cloudflare"))
+                Text(isCleanup ? "Finish Cloudflare Cleanup" : (isRemoval ? "Remove Cloudflare Setup" : "Set Up Cloudflare"))
                     .font(.title2.weight(.semibold))
                 Text(explanation)
                     .foregroundStyle(.secondary)
@@ -91,7 +91,7 @@ struct CloudflareSetupView: View {
         VStack(alignment: .leading, spacing: 14) {
             if zones.isEmpty {
                 ContentUnavailableView(
-                    "No active domains",
+                    "No Active Domains",
                     systemImage: "globe.badge.chevron.backward",
                     description: Text("Add an active domain to this Cloudflare account, then try again.")
                 )
@@ -144,19 +144,15 @@ struct CloudflareSetupView: View {
             }
             .disabled(isWorking)
         } else if accessToken == nil {
-            Button {
+            Button(isWorking ? "Waiting for Browser…" : "Continue in Browser") {
                 run { await connect() }
-            } label: {
-                Text(isWorking ? "Waiting for Browser…" : "Continue in Browser").padding(.horizontal, 12)
             }
             .buttonStyle(.borderedProminent)
             .disabled(isWorking)
         } else {
-            Button {
+            Button(isWorking ? "Setting Up…" : "Create Private Connection") {
                 // Not tied to Cancel: creating resources and rolling back must finish.
                 Task { await provision() }
-            } label: {
-                Text(isWorking ? "Setting Up…" : "Create Private Connection").padding(.horizontal, 12)
             }
             .buttonStyle(.borderedProminent)
             .disabled(isWorking || selectedZone == nil)
@@ -187,12 +183,12 @@ struct CloudflareSetupView: View {
 
     private var explanation: String {
         if isCleanup {
-            return "A previous setup could not finish removing its resources. Authorize Cloudflare again to retry cleanup."
+            return String(localized: "A previous setup couldn’t finish removing its resources. Authorize Cloudflare again to retry cleanup.")
         }
         if isRemoval {
-            return "This removes Task Ferry’s resources from your own Cloudflare account."
+            return String(localized: "This removes Task Ferry’s resources from your own Cloudflare account.")
         }
-        return "Use your own Cloudflare account without installing or running the Cloudflare CLI yourself."
+        return String(localized: "Use your own Cloudflare account without installing or running the Cloudflare CLI yourself.")
     }
 
     private var selectedZone: CloudflareZone? {

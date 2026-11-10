@@ -135,6 +135,7 @@ final class EventKitReminderService: ReminderService {
             reminder.notes = notes.trimmed.isEmpty ? nil : notes
         }
         reminder.calendar = calendar
+        if let url = request.url { reminder.url = url }
         applyDue(request.due, to: reminder, isNew: isNew)
         try store.save(reminder, commit: true)
         return isNew ? reminder.calendarItemIdentifier : nil
@@ -194,8 +195,27 @@ final class EventKitReminderService: ReminderService {
             title: reminder.title ?? "Untitled Reminder",
             notes: reminder.notes,
             due: reminder.dueDateComponents.map(ReminderDue.init),
-            url: reminder.url
+            url: reminder.url,
+            hasUnrestorableDetails: hasUnrestorableDetails(reminder)
         )
+    }
+
+    /// Whether creating the reminder again from its record, as Undo does after a delete, would lose
+    /// something. That's the case for anything the protocol doesn't carry, and for alerts other
+    /// than the one Task Ferry adds at a timed reminder's due time.
+    private static func hasUnrestorableDetails(_ reminder: EKReminder) -> Bool {
+        if reminder.hasRecurrenceRules || reminder.priority != 0 || reminder.hasAttendees { return true }
+        if let location = reminder.location, !location.isEmpty { return true }
+        let due = reminder.dueDateComponents.map(ReminderDue.init)
+        if let start = reminder.startDateComponents.map(ReminderDue.init),
+           (start.year, start.month, start.day) != (due?.year, due?.month, due?.day) {
+            return true
+        }
+        let alarms = reminder.alarms ?? []
+        guard let due, due.hasTime, let dueDate = due.date() else { return !alarms.isEmpty }
+        guard alarms.count == 1, let alarm = alarms.first, alarm.structuredLocation == nil,
+              let date = alarm.absoluteDate else { return true }
+        return abs(date.timeIntervalSince(dueDate)) >= 1
     }
 
     private static func colorHex(_ cgColor: CGColor?) -> String {

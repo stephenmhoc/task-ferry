@@ -168,7 +168,25 @@ final class AppState {
     @ObservationIgnored private var networkWasUnavailable = false
     /// True once a remote client has a working service to poll.
     private var hasRemoteService: Bool { connection.hasRemoteService }
-    private(set) var connectionRevision = 0
+    private(set) var connectionRevision = 0 {
+        didSet { recreatedReminderIDs.removeAll() }
+    }
+    /// Reminders Undo deleted and created again, from the old identifier to the new one, so older
+    /// undo steps can still find them. Identifiers from another connection mean nothing here.
+    @ObservationIgnored private var recreatedReminderIDs: [String: String] = [:]
+
+    /// A reminder's identifier now, following it through any times Undo created it again.
+    func currentReminderID(for id: String) -> String {
+        var id = id
+        var seen: Set<String> = []
+        while let next = recreatedReminderIDs[id], seen.insert(id).inserted { id = next }
+        return id
+    }
+
+    func noteRecreatedReminder(_ oldID: String, as newID: String) {
+        guard oldID != newID else { return }
+        recreatedReminderIDs[oldID] = newID
+    }
 
     var endpoint: String {
         get { isDemo ? demoEndpoint : defaults.string(forKey: AppPreferences.endpoint) ?? "" }
@@ -628,9 +646,11 @@ final class AppState {
     }
 
     @discardableResult
-    func createReminder(title: String, listID: String, due: ReminderDue?, notes: String? = nil) async -> MutationOutcome {
+    func createReminder(title: String, listID: String, due: ReminderDue?, notes: String? = nil,
+                        url: URL? = nil) async -> MutationOutcome {
         let knownIDs = Set(snapshot.reminders.map(\.id))
-        var outcome = await perform(RPCRequest(operation: .upsertReminder, title: title, notes: notes, listID: listID, due: due))
+        var outcome = await perform(RPCRequest(operation: .upsertReminder, title: title, notes: notes, listID: listID,
+                                               due: due, url: url))
         if outcome.succeeded, outcome.createdID == nil {
             // Bridges older than protocol 2 don't report the new identifier.
             outcome.createdID = snapshot.reminders.first { !knownIDs.contains($0.id) && $0.title == title.trimmed }?.id
@@ -888,7 +908,15 @@ final class AppState {
         guard !isDemo else { return }
         let policy: NSApplication.ActivationPolicy = mode == .bridge && runsInBackground ? .accessory : .regular
         guard NSApplication.shared.activationPolicy() != policy else { return }
+        // Switching to the background deactivates the app, which would drop Settings, where the
+        // switch is, behind whatever app is next. Bring it straight back.
+        let keyWindow = NSApplication.shared.keyWindow
         NSApplication.shared.setActivationPolicy(policy)
+        guard let keyWindow else { return }
+        DispatchQueue.main.async {
+            NSApplication.shared.activate()
+            keyWindow.makeKeyAndOrderFront(nil)
+        }
     }
 
     // MARK: - Private
@@ -1087,7 +1115,7 @@ final class AppState {
             }
         case .unavailable:
             connectionState = .idle
-            setError("Finish configuring the remote connection in Settings.", source: .configuration)
+            setError(String(localized: "Finish configuring the remote connection in Settings."), source: .configuration)
         case .superseded:
             break
         }

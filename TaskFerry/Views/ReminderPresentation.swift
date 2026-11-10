@@ -4,30 +4,44 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension Color {
+    /// A list's color. The colors Reminders offers become the matching system colors, so they
+    /// follow dark mode and Increase Contrast. Any other color is drawn exactly.
     init(hex: String) {
-        let value = Int(hex, radix: 16) ?? 0x007AFF
-        self.init(
-            .sRGB,
-            red: Double((value >> 16) & 0xFF) / 255,
-            green: Double((value >> 8) & 0xFF) / 255,
-            blue: Double(value & 0xFF) / 255
-        )
+        self.init(nsColor: NSColor(listHex: hex))
     }
 }
 
-enum ReminderDeletionCopy {
-    static func title(count: Int) -> String {
-        count == 1
-            ? String(localized: "Delete Reminder?")
-            : String(localized: "Delete \(count) Reminders?")
+extension NSColor {
+    convenience init(listHex hex: String) {
+        if let system = Self.systemListColors[hex.uppercased()] {
+            // System colors resolve for the current appearance and contrast when drawn.
+            self.init(name: nil) { _ in system }
+            return
+        }
+        let value = Int(hex, radix: 16) ?? 0x007AFF
+        self.init(
+            srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255,
+            alpha: 1
+        )
     }
 
-    static func message(for reminders: [ReminderRecord]) -> String {
-        if reminders.count == 1, let title = reminders.first?.title {
-            return String(localized: "“\(title)” will be deleted from Apple Reminders. This can’t be undone.")
-        }
-        return String(localized: "These reminders will be deleted from Apple Reminders. This can’t be undone.")
-    }
+    /// The colors in Reminders' list palette, as Task Ferry and EventKit spell them, in their
+    /// light and dark forms.
+    private static let systemListColors: [String: NSColor] = [
+        "FF3B30": .systemRed, "FF453A": .systemRed, "FF2968": .systemRed,
+        "FF9500": .systemOrange, "FF9F0A": .systemOrange,
+        "FFCC00": .systemYellow, "FFD60A": .systemYellow,
+        "34C759": .systemGreen, "30D158": .systemGreen, "63DA38": .systemGreen,
+        "5AC8FA": .systemTeal, "64D2FF": .systemTeal,
+        "007AFF": .systemBlue, "0A84FF": .systemBlue, "1BADF8": .systemBlue,
+        "5856D6": .systemIndigo, "5E5CE6": .systemIndigo,
+        "AF52DE": .systemPurple, "BF5AF2": .systemPurple, "CC73E1": .systemPurple,
+        "FF2D55": .systemPink, "FF375F": .systemPink,
+        "A2845E": .systemBrown, "AC8E68": .systemBrown,
+        "8E8E93": .systemGray, "98989D": .systemGray
+    ]
 }
 
 /// A list's color as a small dot. Menus draw SwiftUI symbols as templates and drop their color,
@@ -40,13 +54,7 @@ enum ListColorDot {
         if let image = cache[hex] {
             return Image(nsImage: image)
         }
-        let value = Int(hex, radix: 16) ?? 0x007AFF
-        let color = NSColor(
-            srgbRed: CGFloat((value >> 16) & 0xFF) / 255,
-            green: CGFloat((value >> 8) & 0xFF) / 255,
-            blue: CGFloat(value & 0xFF) / 255,
-            alpha: 1
-        )
+        let color = NSColor(listHex: hex)
         let image = NSImage(size: NSSize(width: 10, height: 10), flipped: false) { rect in
             color.setFill()
             NSBezierPath(ovalIn: rect.insetBy(dx: 0.5, dy: 0.5)).fill()
@@ -89,6 +97,23 @@ extension ReminderDue {
 
 extension UTType {
     static let taskFerryReminders = UTType(exportedAs: "com.merimerimeri.TaskFerry.reminders")
+    /// The floating + button, dragged onto a list to start a reminder there. Only Task Ferry reads it.
+    static let taskFerryNewReminder = UTType(exportedAs: "com.merimerimeri.TaskFerry.new-reminder")
+}
+
+/// What the floating + button carries when it's dragged. It has no plain-text form, so other
+/// apps ignore it.
+struct NewReminderDragItem: Codable, Sendable, Transferable {
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .taskFerryNewReminder)
+    }
+}
+
+/// The reminders in the drag that's under way, if it started in Task Ferry. A drop target can't
+/// read a drag's contents before the drop, and this lets it refuse a drop that would do nothing.
+@MainActor
+enum ReminderDragSession {
+    static var ids: [String] = []
 }
 
 /// Reminders being dragged. Inside Task Ferry, dropping them on a list moves them, and dropping on
