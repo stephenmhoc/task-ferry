@@ -124,6 +124,7 @@ struct RemindersWorkspaceView: View {
     @State private var remindersPendingDeletion: [ReminderRecord] = []
     @State private var listPendingDeletion: ReminderListRecord?
     @State private var isDropTargeted = false
+    @State private var isRefreshing = false
     @State private var sidebarDropTarget: ReminderSidebarSelection?
     /// Where each sidebar row is, so the floating button can find the row it's dropped on. Global,
     /// like the button's drag: a split view's columns can't see a coordinate space named outside it.
@@ -145,7 +146,12 @@ struct RemindersWorkspaceView: View {
         // Over the split view, not in the detail column, which would hide it behind the sidebar.
         .overlay(alignment: .bottomTrailing) { floatingButton }
         .background {
-            TitlebarButtons(toggleSidebar: toggleSidebar)
+            TitlebarButtons(
+                toggleSidebar: toggleSidebar,
+                showsRefresh: !sidebarHidden && state.syncStatus != .notConfigured,
+                isRefreshing: isRefreshing,
+                refresh: refresh
+            )
         }
         .searchable(text: $searchText, placement: .toolbar, prompt: Text("Search"))
         .searchFocused($searchFocused)
@@ -869,7 +875,12 @@ struct RemindersWorkspaceView: View {
     }
 
     private func refresh() {
-        Task { await state.refresh() }
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        Task {
+            await state.refresh()
+            isRefreshing = false
+        }
     }
 
     /// After completing or deleting, selection moves to the next reminder, as in Reminders.
