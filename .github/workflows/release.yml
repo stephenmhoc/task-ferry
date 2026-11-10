@@ -20,7 +20,7 @@ jobs:
   release:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
-      RELEASE_NOTES: "Adds a Refresh button beside the sidebar button while the sidebar is open, and lines the title bar buttons up with the window controls instead of 8pt below them. Sync status now reads the same in every view: a failed edit no longer reports a problem with Reminders access, a first sync that fails offers Try Again instead of a spinner that never stops, and a cached copy that can't sync says Offline instead of Updating."
+      RELEASE_NOTES: "Task Ferry now works more like a Mac app. You create and rename reminders right in the list, the way Reminders does: Return adds a reminder and starts the next one, Esc cancels, and ⌘I opens Show Info for the date, list, and notes. Deleting and creating can be undone with ⌘Z, so deleting a reminder no longer asks first, unless it repeats or has alerts that Undo couldn't bring back. Search now looks through every list. The floating + works with the keyboard and VoiceOver, and you can still drag it onto a list. Quick Entry is a lighter glass panel that shows any notes it will add, and you can choose your own shortcut for it in Settings. The bridge's menu bar icon shows when something needs attention. Mark as Completed is now ⇧⌘C, matching Reminders. Window ▸ Task Ferry (⌘0) brings the main window back."
     runs-on: xcode-27
     timeout-minutes: 45
     steps:
