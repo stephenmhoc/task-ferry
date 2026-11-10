@@ -60,11 +60,31 @@ struct DerivedReminders: Equatable {
 final class AppState {
     typealias StoredCredentials = CredentialManager.StoredCredentials
 
+    /// The health of syncing itself. A failed edit doesn't change it: that says nothing about the
+    /// connection, and the next sync shows whether the bridge is reachable.
     enum ConnectionState: Equatable {
         case idle
         case loading
         case connected
-        case failed
+        case failed(String)
+    }
+
+    /// Where syncing stands, worked out in one place so every view tells the same story. Views read
+    /// this instead of combining `connectionState`, `hasLoadedSnapshot`, and the failure count.
+    enum SyncStatus: Equatable {
+        /// A remote client without a connection code, with nothing to show.
+        case notConfigured
+        /// Nothing to show yet. The first sync is running or about to.
+        case loading
+        /// The previous session's reminders are shown while the first live sync runs.
+        case updatingCachedCopy
+        /// The reminders shown are current.
+        case upToDate
+        /// A remote client is showing reminders from an earlier sync because its bridge can't be
+        /// reached. It keeps retrying.
+        case offline(lastSync: Date?)
+        /// Syncing failed and can't recover by itself, or there is nothing earlier to show.
+        case failed(String)
     }
 
     typealias SecretKey = CredentialManager.SecretKey
@@ -95,7 +115,7 @@ final class AppState {
     private(set) var isShowingCachedSnapshot = false
     private(set) var lastSuccessfulSync: Date?
     private(set) var consecutiveSyncFailures = 0
-    var connectionState = ConnectionState.idle
+    private(set) var connectionState = ConnectionState.idle
     var bridgeState = BridgeServer.State.stopped
     var cloudflareConnectorState = CloudflareConnectorState.notConfigured
     var errorMessage: String?
@@ -201,8 +221,24 @@ final class AppState {
     /// True when the current error can only be fixed in Settings.
     var errorNeedsSettings: Bool { errorMessage != nil && errorSource == .configuration }
 
+    /// True when there are reminders to show, live or from the last session's cache.
+    var hasSnapshotToShow: Bool { hasLoadedSnapshot || isShowingCachedSnapshot }
+
+    var syncStatus: SyncStatus {
+        if mode == .remote, endpoint.isEmpty, !hasSnapshotToShow { return .notConfigured }
+        if mode == .remote, hasSnapshotToShow, consecutiveSyncFailures > 0 {
+            return .offline(lastSync: lastSuccessfulSync)
+        }
+        if case .failed(let message) = connectionState { return .failed(message) }
+        if isShowingCachedSnapshot { return .updatingCachedCopy }
+        return hasLoadedSnapshot ? .upToDate : .loading
+    }
+
     /// True when background syncs are failing but reminders from an earlier sync are still shown.
-    var isOffline: Bool { consecutiveSyncFailures > 0 && (hasLoadedSnapshot || isShowingCachedSnapshot) }
+    var isOffline: Bool {
+        if case .offline = syncStatus { return true }
+        return false
+    }
 
     init(
         isDemo: Bool? = nil,
@@ -577,8 +613,9 @@ final class AppState {
         }
         if isDemo, demoScenario == .offline {
             consecutiveSyncFailures = 1
-            connectionState = .failed
-            errorMessage = String(localized: "Demo: the bridge is offline. Your last-synced reminders are shown.")
+            let message = String(localized: "Demo: the bridge is offline. Your last-synced reminders are shown.")
+            connectionState = .failed(message)
+            errorMessage = message
             return false
         }
         if interactive && !hasLoadedSnapshot || snapshot == .empty && !isShowingCachedSnapshot {
@@ -1057,7 +1094,7 @@ final class AppState {
     }
 
     private func setError(_ message: String, source: ErrorSource) {
-        connectionState = .failed
+        if source != .mutation { connectionState = .failed(message) }
         errorMessage = message
         errorSource = source
     }

@@ -172,7 +172,49 @@ final class AppStateTests: XCTestCase {
 
         XCTAssertFalse(refreshSucceeded)
         XCTAssertFalse(state.hasLoadedSnapshot)
-        XCTAssertEqual(state.connectionState, .failed)
+        XCTAssertEqual(state.syncStatus, .failed("Snapshot failed"))
+
+        // Dismissing the banner hides the message, not the fact that nothing could load.
+        state.dismissError()
+        XCTAssertEqual(state.syncStatus, .failed("Snapshot failed"))
+    }
+
+    func testFailedEditLeavesTheSyncStatusAlone() async {
+        let suiteName = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
+        defaults.set("https://example.com", forKey: AppPreferences.endpoint)
+        let service = MutationFailingService()
+        let state = AppState(
+            isDemo: false,
+            defaults: defaults,
+            credentialStore: InMemoryCredentialStore(values: ["remote-bridge-token": "TEST-TOKEN"]),
+            serviceFactory: ReminderServiceFactory(
+                makeBridgeService: { service }, makeRemoteService: { _ in service },
+                makeBridgeServer: { BridgeServer(operations: $0, token: $1) }
+            ),
+            snapshotCache: .disabled
+        )
+        defer { state.prepareForTermination() }
+        await state.refresh()
+        XCTAssertEqual(state.syncStatus, .upToDate)
+
+        let succeeded = await state.createList(title: "Will fail").succeeded
+
+        XCTAssertFalse(succeeded)
+        XCTAssertEqual(state.errorMessage, "Mutation failed")
+        XCTAssertEqual(state.syncStatus, .upToDate, "A failed edit says nothing about the connection")
+    }
+
+    func testRemoteWithoutAConnectionCodeIsNotConfigured() {
+        let suiteName = "TaskFerryTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set(AppMode.remote.rawValue, forKey: AppPreferences.mode)
+        let state = AppState(isDemo: false, defaults: defaults, snapshotCache: .disabled)
+
+        XCTAssertEqual(state.syncStatus, .notConfigured)
     }
 
     func testCredentialReadsAreDeferredOffTheMainThread() async {

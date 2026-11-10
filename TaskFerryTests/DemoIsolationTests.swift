@@ -54,9 +54,11 @@ final class DemoIsolationTests: XCTestCase {
         await loading.refresh()
         XCTAssertFalse(loading.hasLoadedSnapshot)
         XCTAssertEqual(loading.connectionState, .loading)
+        XCTAssertEqual(loading.syncStatus, .loading)
         let offline = AppState(isDemo: true, demoScenario: .offline)
         await offline.refresh()
         XCTAssertTrue(offline.isShowingCachedSnapshot)
+        // Offline, not "Updating…": the cached copy isn't about to be replaced.
         XCTAssertTrue(offline.isOffline)
         XCTAssertFalse(offline.snapshot.reminders.isEmpty)
         let original = offline.snapshot

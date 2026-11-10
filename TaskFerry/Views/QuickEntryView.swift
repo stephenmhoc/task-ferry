@@ -120,7 +120,7 @@ struct QuickEntryView: View {
             }
             selectDefaultListIfNeeded()
             titleFocused = true
-            await state.refresh(showLoadingIndicator: !state.hasLoadedSnapshot && !state.isShowingCachedSnapshot)
+            await state.refresh(showLoadingIndicator: !state.hasSnapshotToShow)
             selectDefaultListIfNeeded()
         }
         .onChange(of: state.snapshot.lists) { _, _ in selectDefaultListIfNeeded() }

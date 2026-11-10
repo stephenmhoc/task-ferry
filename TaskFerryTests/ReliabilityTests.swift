@@ -188,6 +188,7 @@ final class AppStateReliabilityTests: XCTestCase {
         await state.refresh(showLoadingIndicator: false)
         XCTAssertNil(state.errorMessage, "One or two missed background syncs shouldn't raise a banner")
         XCTAssertTrue(state.isOffline)
+        XCTAssertEqual(state.syncStatus, .offline(lastSync: state.lastSuccessfulSync))
 
         await state.refresh(showLoadingIndicator: false)
         XCTAssertEqual(state.errorMessage, "Offline")
@@ -342,10 +343,12 @@ final class AppStateReliabilityTests: XCTestCase {
         XCTAssertEqual(state.snapshot, cached)
         XCTAssertTrue(state.isShowingCachedSnapshot)
         XCTAssertFalse(state.hasLoadedSnapshot)
+        XCTAssertEqual(state.syncStatus, .updatingCachedCopy)
 
         await state.refresh()
 
         XCTAssertFalse(state.isShowingCachedSnapshot)
+        XCTAssertEqual(state.syncStatus, .upToDate)
         XCTAssertEqual(state.snapshot.lists.first?.title, "List")
         for _ in 0..<50 where cache.load(endpoint: "https://example.com")?.snapshot.lists.first?.title != "List" {
             try await Task.sleep(for: .milliseconds(10))

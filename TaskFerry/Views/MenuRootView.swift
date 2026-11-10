@@ -144,9 +144,9 @@ private struct BridgeView: View {
                         symbol: "checklist",
                         title: "Reminders access",
                         detail: remindersDetail,
-                        ready: state.connectionState == .connected
+                        ready: state.syncStatus == .upToDate
                     ) {
-                        if state.connectionState == .failed {
+                        if remindersAccessFailed {
                             Button("Open Privacy Settings") {
                                 NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders")!)
                             }
@@ -188,16 +188,21 @@ private struct BridgeView: View {
         return false
     }
 
+    private var remindersAccessFailed: Bool {
+        switch state.syncStatus {
+        case .failed, .offline: true
+        case .notConfigured, .loading, .updatingCachedCopy, .upToDate: false
+        }
+    }
+
     private var remindersDetail: Text {
-        switch state.connectionState {
-        case .connected:
+        switch state.syncStatus {
+        case .upToDate:
             Text("^[\(state.snapshot.lists.count) list](inflect: true) · ^[\(state.snapshot.reminders.count) open reminder](inflect: true)")
-        case .loading:
-            Text("Checking access…")
-        case .failed:
+        case .failed, .offline:
             Text("Access needs attention")
-        case .idle:
-            Text("Not checked yet")
+        case .notConfigured, .loading, .updatingCachedCopy:
+            Text("Checking access…")
         }
     }
 

@@ -322,12 +322,12 @@ private struct ConnectionSettingsPane: View {
     }
 
     private var status: String {
-        if state.isOffline { return String(localized: "Offline — retrying") }
-        switch state.connectionState {
-        case .connected: return String(localized: "Connected")
-        case .loading: return String(localized: "Connecting…")
-        case .failed: return state.errorMessage ?? String(localized: "Needs attention")
-        case .idle: return state.endpoint.isEmpty ? String(localized: "Not set up") : String(localized: "Waiting")
+        switch state.syncStatus {
+        case .notConfigured: return String(localized: "Not set up")
+        case .loading, .updatingCachedCopy: return String(localized: "Connecting…")
+        case .upToDate: return String(localized: "Connected")
+        case .offline: return String(localized: "Offline — retrying")
+        case .failed(let message): return message
         }
     }
 

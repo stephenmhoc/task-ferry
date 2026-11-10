@@ -118,7 +118,7 @@ final class ReminderNotificationScheduler: NSObject, UNUserNotificationCenterDel
             return
         }
         // Until reminders have been loaded, an empty list means "not known yet", not "nothing due".
-        guard state.hasLoadedSnapshot || state.isShowingCachedSnapshot else { return }
+        guard state.hasSnapshotToShow else { return }
 
         let openIDs = Set(state.snapshot.reminders.map(\.id))
         let items = ReminderNotificationPlan.items(for: state.snapshot, now: Date(), dateOnlyHour: dateOnlyHour)

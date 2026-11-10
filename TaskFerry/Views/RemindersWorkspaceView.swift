@@ -228,7 +228,7 @@ struct RemindersWorkspaceView: View {
 
     @ViewBuilder
     private var floatingButton: some View {
-        if !needsConnection {
+        if state.syncStatus != .notConfigured {
             FloatingNewReminderButton(
                 action: beginNewReminder,
                 onDrag: { point in
@@ -391,13 +391,16 @@ struct RemindersWorkspaceView: View {
             }
 
             Group {
-                if needsConnection {
+                switch state.syncStatus {
+                case .notConfigured:
                     ConnectBridgeView(state: state)
-                } else if !state.hasLoadedSnapshot && !state.isShowingCachedSnapshot && state.errorMessage == nil {
+                case .loading:
                     // Never claim "nothing to do" before the first sync has answered.
                     ProgressView("Loading your reminders…")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
+                case .failed where !state.hasSnapshotToShow:
+                    LoadFailedView(state: state)
+                case .failed, .updatingCachedCopy, .upToDate, .offline:
                     reminderList(sections(for: displayed))
                 }
             }
@@ -626,10 +629,6 @@ struct RemindersWorkspaceView: View {
     private var selectedList: ReminderListRecord? {
         guard case .list(let id) = currentSelection else { return nil }
         return state.list(for: id)
-    }
-
-    private var needsConnection: Bool {
-        state.endpoint.isEmpty && !state.hasLoadedSnapshot && !state.isShowingCachedSnapshot
     }
 
     private var baseReminders: [ReminderRecord] {
@@ -1241,23 +1240,61 @@ private struct SyncStatusView: View {
 
     var body: some View {
         Group {
-            if state.isShowingCachedSnapshot {
+            switch state.syncStatus {
+            case .updatingCachedCopy:
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small)
                     Text("Updating…")
                 }
                 .help("Showing reminders from your last session while Task Ferry syncs.")
-            } else if state.isOffline, let last = state.lastSuccessfulSync {
+            case .offline(let lastSync):
                 Label {
-                    Text("Offline · updated \(last, style: .relative) ago")
+                    if let lastSync {
+                        Text("Offline · updated \(lastSync, style: .relative) ago")
+                    } else {
+                        Text("Offline")
+                    }
                 } icon: {
                     Image(systemName: "wifi.slash")
                 }
                 .help("Task Ferry can’t reach your bridge right now and will keep trying.")
+            case .failed(let message) where state.hasSnapshotToShow:
+                Label("Not syncing", systemImage: "exclamationmark.triangle")
+                    .help(message)
+            case .notConfigured, .loading, .upToDate, .failed:
+                EmptyView()
             }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+    }
+}
+
+/// The first sync failed, so there is nothing to show yet. The error banner says why, and this
+/// stays useful after the banner is dismissed.
+private struct LoadFailedView: View {
+    let state: AppState
+    @State private var isRetrying = false
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Couldn’t Load Your Reminders", systemImage: "exclamationmark.icloud")
+        } description: {
+            Text("Your reminders appear here once Task Ferry reaches your bridge.")
+        } actions: {
+            Button(isRetrying ? "Trying…" : "Try Again") {
+                isRetrying = true
+                Task {
+                    await state.refresh()
+                    isRetrying = false
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isRetrying)
+            if state.errorNeedsSettings {
+                SettingsLink { Text("Open Settings…") }
+            }
+        }
     }
 }
 
