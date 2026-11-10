@@ -12,6 +12,8 @@ struct ReminderForm: View {
     /// Saves and closes. Closing it any other way, with Esc or a click elsewhere, saves too.
     let onDone: () -> Void
     @FocusState private var focusedField: Field?
+    @State private var showsDatePopover = false
+    @State private var showsTimePopover = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -102,35 +104,16 @@ struct ReminderForm: View {
         }
     }
 
+    /// The same date and time controls as a reminder's row, so they read and behave the same here.
     private var dateRow: some View {
         LabeledContent("Date") {
-            HStack(spacing: 10) {
-                if session.hasDue {
-                    DatePicker("Due date", selection: $session.dueDate, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
-                }
-                Toggle("Has a date", isOn: $session.hasDue)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-            }
+            DueDateControl(session: session, isPresented: $showsDatePopover)
         }
     }
 
     private var timeRow: some View {
         LabeledContent("Time") {
-            HStack(spacing: 10) {
-                if session.includesTime {
-                    DatePicker("Due time", selection: $session.dueDate, displayedComponents: .hourAndMinute)
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
-                }
-                Toggle("Has a time", isOn: $session.includesTime)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
-            }
+            DueTimeControl(session: session, isPresented: $showsTimePopover)
         }
     }
 

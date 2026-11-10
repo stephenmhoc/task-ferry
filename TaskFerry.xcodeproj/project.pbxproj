@@ -71,6 +71,8 @@
 		931A84C3686629DCC7464B0B /* ReminderUndo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C07DA1F653DCF20220AAF2 /* ReminderUndo.swift */; };
 		96C1BEED124B32F2E3EC1ACE /* ReminderNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76D3851DB285BEA89945F17B /* ReminderNotificationScheduler.swift */; };
 		971DD854DD2C55F0E7F8A32F /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439D6E88D4070EB863DD8279 /* CredentialStore.swift */; };
+		98391107F51C6AF998F2B8B7 /* DueControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B11E3EE1385921CC517E83F /* DueControls.swift */; };
+		99C435C3CAD253FB820E1034 /* FloatingNewReminderButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D650BDE965D8CA77FF8F00A /* FloatingNewReminderButton.swift */; };
 		9DF8CAB1820D7C3EB204F689 /* ReminderNotificationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EB79CFEDAD370307BCCE317 /* ReminderNotificationPlan.swift */; };
 		A08264617B8C9577C605913C /* ReminderNotificationPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EB79CFEDAD370307BCCE317 /* ReminderNotificationPlan.swift */; };
 		A12E488D755416D3440C41C5 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA7850D8573A89B198AFD83E /* AppState.swift */; };
@@ -89,6 +91,7 @@
 		D02629244204295A19D0CACF /* ReminderBatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */; };
 		D1EB965E65AE3F3206B64A8A /* CloudflareModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14931A8D7EE4CFA217D04514 /* CloudflareModels.swift */; };
 		D48C3A3DEDFEF7DB8B6EAB80 /* ReminderDueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9BAB42F919A6F4DDE3F4D6 /* ReminderDueTests.swift */; };
+		D5A0502F6DF9347D00226371 /* InlineReminderEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79112D514C4CCB75BB132778 /* InlineReminderEditor.swift */; };
 		D78D4399C840D00F99AF6D13 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = E5A62B10239688D89438CC19 /* Sentry */; };
 		DA35B2A48EA79949271C1BAA /* TaskFerryURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D8A31A625D40F1F46273FE /* TaskFerryURL.swift */; };
 		DB1D3069BEF832B5105ADDB7 /* cloudflared in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5E8F21B5DE1B27F9ED4DC03C /* cloudflared */; };
@@ -103,6 +106,7 @@
 		EACEBEE9B6E5EAC5BDD3A044 /* TaskFerryIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7143F01D8249E1B0835A302B /* TaskFerryIntents.swift */; };
 		EE6D3B8D0B7E2FE25C0512BE /* RemoteReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A35921E8BB4328C52C89308 /* RemoteReminderService.swift */; };
 		EEA9FF5882EED6956073BFE0 /* ReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC41129763EBE01D6A625BBD /* ReminderService.swift */; };
+		F02B203E1E493C6F42F86716 /* DueControlTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4C81EAE631E99BE82FF232F /* DueControlTests.swift */; };
 		F0B937752ED20EED3C02059E /* GlobalHotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFEC0BC0BBAC79A314445D73 /* GlobalHotKey.swift */; };
 		F11A50F22A415A64B966B785 /* CloudflareTunnelConnector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3D0B6804D0812C4E25388A0 /* CloudflareTunnelConnector.swift */; };
 		F3D28366C540A872F5CB4D06 /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38E8840EF7BFF9853B10184D /* AppStateTests.swift */; };
@@ -171,9 +175,11 @@
 		645C597A24B049040D92FB50 /* ReminderForm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderForm.swift; sourceTree = "<group>"; };
 		64F546C3E708667FF321FD0F /* ListEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListEditorSheet.swift; sourceTree = "<group>"; };
 		6581628FBCDD91E4755EB8FF /* CloudflareCleanupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudflareCleanupStore.swift; sourceTree = "<group>"; };
+		6B11E3EE1385921CC517E83F /* DueControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DueControls.swift; sourceTree = "<group>"; };
 		6CE2147564AB064353F50CA0 /* TaskFerry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TaskFerry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7143F01D8249E1B0835A302B /* TaskFerryIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskFerryIntents.swift; sourceTree = "<group>"; };
 		76D3851DB285BEA89945F17B /* ReminderNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderNotificationScheduler.swift; sourceTree = "<group>"; };
+		79112D514C4CCB75BB132778 /* InlineReminderEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineReminderEditor.swift; sourceTree = "<group>"; };
 		7A35921E8BB4328C52C89308 /* RemoteReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteReminderService.swift; sourceTree = "<group>"; };
 		7BA43021B55744BC69F34B30 /* RemindersWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersWorkspaceView.swift; sourceTree = "<group>"; };
 		83C07DA1F653DCF20220AAF2 /* ReminderUndo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderUndo.swift; sourceTree = "<group>"; };
@@ -181,6 +187,7 @@
 		8448DBA85C5A45652FD81D18 /* ReminderEditSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderEditSessionTests.swift; sourceTree = "<group>"; };
 		8A98D7CB49461178A8D7A902 /* ReminderUndoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderUndoTests.swift; sourceTree = "<group>"; };
 		8B65434108D6E8108BD12A74 /* QuickEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickEntryView.swift; sourceTree = "<group>"; };
+		8D650BDE965D8CA77FF8F00A /* FloatingNewReminderButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingNewReminderButton.swift; sourceTree = "<group>"; };
 		937825C16908C89043F79A31 /* ReminderConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderConnection.swift; sourceTree = "<group>"; };
 		9D29BDF8DAB2B1F9950C6D93 /* Pasteboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Pasteboard.swift; sourceTree = "<group>"; };
 		9D97A5F95CA51751BE9EC7F2 /* cloudflared-LICENSE */ = {isa = PBXFileReference; path = "cloudflared-LICENSE"; sourceTree = "<group>"; };
@@ -212,6 +219,7 @@
 		DA7850D8573A89B198AFD83E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		DC9BAB42F919A6F4DDE3F4D6 /* ReminderDueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderDueTests.swift; sourceTree = "<group>"; };
 		DEE99CA2B6B5E61789B779AE /* ReminderLinksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderLinksTests.swift; sourceTree = "<group>"; };
+		E4C81EAE631E99BE82FF232F /* DueControlTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DueControlTests.swift; sourceTree = "<group>"; };
 		E5A9153BCB020203F5078687 /* DemoIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoIsolationTests.swift; sourceTree = "<group>"; };
 		EB0F14CB5D185CF4FAC95DFA /* TaskFerry-Direct.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "TaskFerry-Direct.entitlements"; sourceTree = "<group>"; };
 		EB3A64D3DB7D0A3BA9578886 /* TaskFerry.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TaskFerry.entitlements; sourceTree = "<group>"; };
@@ -245,6 +253,7 @@
 				E5A9153BCB020203F5078687 /* DemoIsolationTests.swift */,
 				0862A6022F701A784D25BD47 /* DemoReminderServiceTests.swift */,
 				CAD5B2C5B97E3B633A7F48CA /* DiagnosticsTests.swift */,
+				E4C81EAE631E99BE82FF232F /* DueControlTests.swift */,
 				0A142AD5432BD3D7F07A8768 /* ProtocolTests.swift */,
 				1D1C27B37CB3983980FF4A52 /* ReliabilityTests.swift */,
 				5439B04ABB27A5726218E1BC /* ReminderBatchTests.swift */,
@@ -327,6 +336,9 @@
 			isa = PBXGroup;
 			children = (
 				DA0EB6D5A1517A666AC25788 /* CloudflareSetupView.swift */,
+				6B11E3EE1385921CC517E83F /* DueControls.swift */,
+				8D650BDE965D8CA77FF8F00A /* FloatingNewReminderButton.swift */,
+				79112D514C4CCB75BB132778 /* InlineReminderEditor.swift */,
 				64F546C3E708667FF321FD0F /* ListEditorSheet.swift */,
 				5BF6290C6B74AEC75C990D52 /* MenuRootView.swift */,
 				8B65434108D6E8108BD12A74 /* QuickEntryView.swift */,
@@ -563,8 +575,11 @@
 				AAA32510EFAD3A5287839414 /* CredentialStore.swift in Sources */,
 				C61908B77BF3ADEC599B2915 /* DemoReminderService.swift in Sources */,
 				CC15E1E71EEB100EDDFB9A00 /* Diagnostics.swift in Sources */,
+				98391107F51C6AF998F2B8B7 /* DueControls.swift in Sources */,
 				125DA0BE7D79D586EF8F4AD8 /* EventKitReminderService.swift in Sources */,
+				99C435C3CAD253FB820E1034 /* FloatingNewReminderButton.swift in Sources */,
 				F0B937752ED20EED3C02059E /* GlobalHotKey.swift in Sources */,
+				D5A0502F6DF9347D00226371 /* InlineReminderEditor.swift in Sources */,
 				1AF06B81E5CD3ED2288CC848 /* KeychainStore.swift in Sources */,
 				AFA58BD43FDE8A083FC67AB1 /* ListEditorSheet.swift in Sources */,
 				29513C903C9A522C30F14C3E /* MenuRootView.swift in Sources */,
@@ -626,6 +641,7 @@
 				2758D8D63208F994FB8C4218 /* DemoReminderServiceTests.swift in Sources */,
 				721AC1B6886BF541C7E757DF /* Diagnostics.swift in Sources */,
 				E0EF1ABF170587945B821A18 /* DiagnosticsTests.swift in Sources */,
+				F02B203E1E493C6F42F86716 /* DueControlTests.swift in Sources */,
 				E01CC0B263CFE3D76956CF34 /* EventKitReminderService.swift in Sources */,
 				5315BF8EB1A3E531F71BBFE5 /* KeychainStore.swift in Sources */,
 				345B0169000F29C43930EDCD /* Models.swift in Sources */,

@@ -111,12 +111,44 @@ enum WorkspaceFocus: Hashable {
     case sidebar
     case search
     case reminders
-    /// The title of a reminder being renamed in its row.
-    case title(String)
-    /// The empty row a new reminder is typed into.
-    case newReminder
+    /// A field in the row being edited: a reminder's, or the new row's, which a new reminder is
+    /// typed into.
+    case row(String, ReminderRowField)
     /// A list being renamed in the sidebar.
     case listName(String)
+
+    var rowID: String? {
+        if case .row(let id, _) = self { return id }
+        return nil
+    }
+}
+
+/// Where the floating + button would start a reminder if it were let go now.
+enum NewReminderDropTarget: Equatable {
+    case sidebar(ReminderSidebarSelection)
+    /// The end of one list's section in the reminder list.
+    case section(String)
+    /// The end of the reminder list on screen.
+    case list
+}
+
+/// The sidebar's width. Wide enough for list names such as "Groceries & Household" next to their
+/// counts; TitlebarButtons may raise the minimum to clear the sidebar button.
+enum SidebarWidth {
+    static let minimum: CGFloat = 220
+    static let ideal: CGFloat = 260
+    static let maximum: CGFloat = 400
+}
+
+/// Where the sidebar rows and the reminder list's rows are, for the + button's drag. Global, like
+/// the drag itself, because a split view's columns can't see a coordinate space named outside them.
+/// It's a plain object, so scrolling updates it without redrawing anything.
+final class NewReminderDropGeometry {
+    var sidebar: CGRect = .null
+    var sidebarRows: [ReminderSidebarSelection: CGRect] = [:]
+    var reminderList: CGRect = .null
+    /// Keyed by section and row, so a reminder in two places is two entries.
+    var rows: [String: (section: String, frame: CGRect)] = [:]
 }
 
 /// What a search looks through.
@@ -132,8 +164,8 @@ struct RemindersWorkspaceView: View {
     @Bindable var state: AppState
     /// The left and right edge of everything in the reminder column.
     fileprivate static let margin: CGFloat = 16
-    fileprivate static let newRowID = "new-reminder-row"
-    fileprivate static let dropTypes: [UTType] = [.taskFerryNewReminder, .taskFerryReminders, .plainText]
+    static let newRowID = "new-reminder-row"
+    fileprivate static let dropTypes: [UTType] = [.taskFerryReminders, .plainText]
 
     @SceneStorage("TaskFerry.sidebar-selection") private var storedSelection = "today"
     @SceneStorage("TaskFerry.sidebar-hidden") private var sidebarHidden = false
@@ -162,6 +194,11 @@ struct RemindersWorkspaceView: View {
     @State private var listNameDraft = ""
     @State private var isDropTargeted = false
     @State private var sidebarDropTarget: ReminderSidebarSelection?
+    @State private var dropGeometry = NewReminderDropGeometry()
+    /// The date or time popover open on a row's editor.
+    @State private var rowPopover: RowPopover?
+    /// Where the + button would start a reminder while it's dragged.
+    @State private var newReminderDrop: NewReminderDropTarget?
     @Environment(\.undoManager) private var undoManager
     @Environment(\.controlActiveState) private var controlActiveState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -190,10 +227,11 @@ struct RemindersWorkspaceView: View {
             }
     }
 
-    private var workspace: some View {
+    private var splitView: some View {
         NavigationSplitView(columnVisibility: columnVisibility) {
             sidebar
-                .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 340)
+                .navigationSplitViewColumnWidth(min: SidebarWidth.minimum, ideal: SidebarWidth.ideal,
+                                                max: SidebarWidth.maximum)
                 .toolbar(removing: .sidebarToggle)
         } detail: {
             detail
@@ -216,6 +254,12 @@ struct RemindersWorkspaceView: View {
         .toolbar { ToolbarSpacer(.flexible) }
         .navigationTitle(displayTitle)
         .focusedSceneValue(\.workspaceActions, workspaceActions)
+    }
+
+    /// The window's layout, what it reacts to, and its sheets and alerts are kept apart, so none of
+    /// them is one long expression to type-check.
+    private var observingSplitView: some View {
+        splitView
         .onDisappear {
             commitNewReminder(continuing: false)
             persistCurrentEditor()
@@ -235,7 +279,7 @@ struct RemindersWorkspaceView: View {
         .onChange(of: controlActiveState) { _, active in
             guard active == .inactive else { return }
             // An empty new row stays, ready for when you come back.
-            if newReminder?.title.trimmed.isEmpty == false { commitNewReminder(continuing: false) }
+            if newReminder?.isBlank == false { commitNewReminder(continuing: false) }
             if editingMode == .inline, editingSession != nil { endEditing() }
             commitRenaming()
         }
@@ -272,6 +316,10 @@ struct RemindersWorkspaceView: View {
         .onChange(of: state.hasLoadedSnapshot) { _, _ in
             consume(state.navigationRequest)
         }
+    }
+
+    private var workspace: some View {
+        observingSplitView
         .sheet(item: $listEditor, onDismiss: {
             if newReminderAfterSheet {
                 newReminderAfterSheet = false
@@ -307,9 +355,73 @@ struct RemindersWorkspaceView: View {
             FloatingNewReminderButton(
                 lists: state.snapshot.lists,
                 action: beginNewReminder,
-                newReminderInList: { beginNewReminder(in: .list($0)) }
+                newReminderInList: { beginNewReminder(in: .list($0)) },
+                onDragChanged: { showDropTarget(newReminderDropTarget(at: $0)) },
+                onDragEnded: { point in
+                    let target = newReminderDropTarget(at: point)
+                    showDropTarget(nil)
+                    guard let target else { return false }
+                    startNewReminder(at: target)
+                    return true
+                },
+                onDragFinished: { showDropTarget(nil) }
             )
             .padding(FloatingNewReminderButton.inset)
+        }
+    }
+
+    /// What's under the pointer: a sidebar row, a list's section, or the reminder list itself.
+    /// Rows reach a few points into the gaps between them, so there's no dead space.
+    private func newReminderDropTarget(at point: CGPoint) -> NewReminderDropTarget? {
+        guard !state.snapshot.lists.isEmpty else { return nil }
+        let geometry = dropGeometry
+        if !sidebarHidden, geometry.sidebar.contains(point) {
+            return geometry.sidebarRows
+                .first { $0.value.insetBy(dx: 0, dy: -3).contains(point) }
+                .map { .sidebar($0.key) }
+        }
+        guard geometry.reminderList.contains(point), state.hasSnapshotToShow else { return nil }
+        // Only the height matters: anywhere across a row is that row.
+        let section = geometry.rows.values
+            .first { $0.frame.minY - 1 <= point.y && point.y < $0.frame.maxY + 1 }?.section
+        if let section, state.list(for: section) != nil, !showsSingleList {
+            return .section(section)
+        }
+        return .list
+    }
+
+    private func showDropTarget(_ target: NewReminderDropTarget?) {
+        let sidebar: ReminderSidebarSelection?
+        if case .sidebar(let destination) = target { sidebar = destination } else { sidebar = nil }
+        if sidebarDropTarget != sidebar { sidebarDropTarget = sidebar }
+        if newReminderDrop != target { newReminderDrop = target }
+    }
+
+    /// The section that gets a line showing where the new row will go.
+    private var newReminderDropSection: String? {
+        switch newReminderDrop {
+        case .section(let id): id
+        case .list: showsSingleList ? "list" : state.newReminderListID
+        case .sidebar, nil: nil
+        }
+    }
+
+    /// The whole list is outlined when there's no section on screen to put the line under.
+    private var outlinesListForNewReminder: Bool {
+        guard newReminderDrop == .list else { return false }
+        let section = newReminderDropSection
+        let hasNewRow = newReminder != nil && newRowSectionID == section
+        return !sections(for: displayedReminders).contains { $0.id == section && (!$0.reminders.isEmpty || hasNewRow) }
+    }
+
+    private func startNewReminder(at target: NewReminderDropTarget) {
+        switch target {
+        case .sidebar(let destination):
+            beginNewReminder(in: destination)
+        case .section(let listID):
+            beginNewReminder(in: currentSelection, listID: listID)
+        case .list:
+            beginNewReminder()
         }
     }
 
@@ -330,6 +442,7 @@ struct RemindersWorkspaceView: View {
             }
         }
         .listStyle(.sidebar)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { dropGeometry.sidebar = $0 }
         .focused($focus, equals: .sidebar)
         .onDeleteCommand {
             if renamingListID == nil, let list = selectedList {
@@ -418,7 +531,8 @@ struct RemindersWorkspaceView: View {
             // All Reminders has no list or date to give a reminder, so dropping one there does nothing.
             acceptsReminders: destination != .all,
             shownIDs: shownIDs,
-            onDrop: { acceptDrop($0, into: destination, shownIDs: shownIDs) }
+            onDrop: { acceptDrop($0, into: destination, shownIDs: shownIDs) },
+            onFrame: { [dropGeometry] frame in dropGeometry.sidebarRows[destination] = frame }
         )
     }
 
@@ -465,6 +579,7 @@ struct RemindersWorkspaceView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { dropGeometry.reminderList = $0 }
             .onDrop(of: Self.dropTypes, delegate: ReminderListDropDelegate(
                 shownIDs: Set(displayed.map(\.id)),
                 // Search results from everywhere aren't the view on screen, so there's nowhere to
@@ -474,7 +589,7 @@ struct RemindersWorkspaceView: View {
                 perform: { acceptDrop($0, into: currentSelection, shownIDs: Set(displayed.map(\.id))) }
             ))
             .overlay {
-                if isDropTargeted {
+                if isDropTargeted || outlinesListForNewReminder {
                     RoundedRectangle(cornerRadius: 8)
                         .strokeBorder(Color.accentColor, lineWidth: 2)
                         .padding(4)
@@ -539,6 +654,7 @@ struct RemindersWorkspaceView: View {
                         Section {
                             sectionHeader(title: title, section: section)
                                 .padding(.top, 14)
+                                .modifier(RowFrame(geometry: dropGeometry, section: section.id, row: "header"))
                                 .listRowSeparator(.hidden)
                                 .selectionDisabled()
                             rows(section)
@@ -563,14 +679,18 @@ struct RemindersWorkspaceView: View {
             .onDeleteCommand {
                 delete(selectedReminders)
             }
-            // Return edits the selected reminder's title in place, as in Reminders.
-            .onKeyPress(.return) {
-                guard editingID == nil, focus != .newReminder, !selection.isEmpty else { return .ignored }
+            // Inside a row, keys reach the list rather than the field, so the row's own Return
+            // behaviour is here. Otherwise Return edits the selected reminder in place, as in Reminders.
+            .onKeyPress(.return, phases: .down) { press in
+                if case .row(let id, let field) = focus {
+                    return handleReturn(inRow: id, field: field, command: press.modifiers.contains(.command))
+                }
+                guard editingID == nil, !selection.isEmpty else { return .ignored }
                 beginEditing(selection, mode: .inline)
                 return .handled
             }
             .onKeyPress(.escape) {
-                guard editingID == nil, focus != .newReminder, !selection.isEmpty else { return .ignored }
+                guard editingID == nil, focus?.rowID != Self.newRowID, !selection.isEmpty else { return .ignored }
                 selection = []
                 return .handled
             }
@@ -620,6 +740,7 @@ struct RemindersWorkspaceView: View {
 
     @ViewBuilder
     private func rows(_ section: ReminderSection) -> some View {
+        let hasNewRow = newReminder != nil && section.id == newRowSectionID
         ForEach(section.reminders) { reminder in
             ReminderRow(
                 state: state,
@@ -627,12 +748,21 @@ struct RemindersWorkspaceView: View {
                 // List titles scroll away, so a row has to say where it belongs by itself.
                 showsList: !showsSingleList,
                 showsFullDate: currentSelection == .all || currentSelection.isList || section.isOverdue || isSearchingAll,
+                isSelected: selection.contains(reminder.id),
                 editing: editingMode == .inline && editingID == reminder.id ? editingSession : nil,
                 focus: $focus,
+                popover: $rowPopover,
                 onComplete: { complete([reminder]) },
+                onShowInfo: { beginEditing([reminder.id], mode: .info) },
+                onEdit: { beginEditing([reminder.id], mode: .inline) },
                 onSubmit: saveCurrentEditor,
                 onCancel: cancelCurrentEditor
             )
+            .overlay(alignment: .bottom) {
+                if !hasNewRow, reminder.id == section.reminders.last?.id, newReminderDropSection == section.id {
+                    NewRowIndicator()
+                }
+            }
             .itemProvider { dragProvider(for: reminder) }
             .popover(
                 isPresented: infoPresented(for: reminder.id),
@@ -649,19 +779,31 @@ struct RemindersWorkspaceView: View {
                     )
                 }
             }
+            .modifier(RowFrame(geometry: dropGeometry, section: section.id, row: reminder.id))
+            // The row stays selected while it's edited, so the list doesn't take the first click on
+            // its fields, but the selection's colour would sit behind them, so it's covered.
+            .listRowBackground(editingMode == .inline && editingID == reminder.id
+                ? Color(nsColor: .textBackgroundColor) : nil)
+            // Last, so the list's selection can see it.
             .tag(reminder.id)
             .id(reminder.id)
             .listRowSeparator(.hidden)
         }
-        if let newReminder, section.id == newRowSectionID {
+        if let newReminder, hasNewRow {
             NewReminderRow(
                 session: newReminder,
+                lists: state.snapshot.lists,
                 color: Color(hex: state.list(for: newReminder.listID)?.colorHex ?? TaskFerryPalette.defaultListHex),
                 focus: $focus,
+                popover: $rowPopover,
                 focusRequest: newRowFocusRequest,
                 onSubmit: { commitNewReminder(continuing: true) },
                 onCancel: cancelNewReminder
             )
+            .overlay(alignment: .bottom) {
+                if newReminderDropSection == section.id { NewRowIndicator() }
+            }
+            .modifier(RowFrame(geometry: dropGeometry, section: section.id, row: Self.newRowID))
             .id(Self.newRowID)
             .selectionDisabled()
             .listRowSeparator(.hidden)
@@ -891,21 +1033,23 @@ struct RemindersWorkspaceView: View {
     private func focusDidChange(from previous: WorkspaceFocus?, to current: WorkspaceFocus?) {
         guard previous != current else { return }
         if current != nil, current == restoredFocus { restoredFocus = nil }
+        // Moving between a row's own fields, such as from the title to the date, stays in the row.
+        if let row = previous?.rowID, row == current?.rowID { return }
         let departed = current != nil && (current != .reminders || userJustMovedFocus)
         switch previous {
-        case .newReminder:
+        case .row(let id, let field) where id == Self.newRowID:
             guard newReminder != nil else { return }
             if departed {
                 commitNewReminder(continuing: false)
-            } else {
-                restoreFocus(.newReminder)
+            } else if field.takesFocusBack {
+                restoreFocus(.row(id, field))
             }
-        case .title(let id):
+        case .row(let id, let field):
             guard editingMode == .inline, editingID == id else { return }
             if departed {
                 endEditing()
-            } else {
-                restoreFocus(.title(id))
+            } else if field.takesFocusBack {
+                restoreFocus(.row(id, field))
             }
         case .listName(let id):
             guard renamingListID == id else { return }
@@ -934,11 +1078,42 @@ struct RemindersWorkspaceView: View {
         }
     }
 
-    /// Gives focus back once; if the field isn't on screen to take it, it's left alone.
+    /// Gives focus back once; if the field isn't on screen to take it, it's left alone. Focus also
+    /// goes nowhere when a popover, such as the date picker's, takes the keyboard, and taking it
+    /// back would close the popover, so that waits until AppKit has settled which window is key.
     private func restoreFocus(_ target: WorkspaceFocus) {
         guard restoredFocus != target else { return }
-        restoredFocus = target
-        focus = target
+        DispatchQueue.main.async {
+            guard focus == nil || focus == .reminders, let key = NSApp.keyWindow, key === NSApp.mainWindow else { return }
+            restoredFocus = target
+            focus = target
+        }
+    }
+
+    /// Return inside a row: a line break in the notes, a save with ⌘, and the popover on the date
+    /// or time control. Text being composed with an input method keeps its Return.
+    private func handleReturn(inRow id: String, field: ReminderRowField, command: Bool) -> KeyPress.Result {
+        let editor = NSApp.keyWindow?.firstResponder as? NSTextView
+        if editor?.hasMarkedText() == true { return .ignored }
+        if command {
+            if id == Self.newRowID {
+                commitNewReminder(continuing: false)
+            } else {
+                saveCurrentEditor()
+            }
+            return .handled
+        }
+        switch field {
+        case .notes:
+            guard let editor else { return .ignored }
+            editor.insertNewlineIgnoringFieldEditor(nil)
+            return .handled
+        case .date, .time:
+            rowPopover = RowPopover(rowID: id, field: field)
+            return .handled
+        case .title, .list, .info:
+            return .ignored
+        }
     }
 
     private func beginNewReminder() {
@@ -946,21 +1121,26 @@ struct RemindersWorkspaceView: View {
     }
 
     /// Adds an empty row to type into, at the end of the list on screen or the one the + button was
-    /// dropped on. In Today, Tomorrow, and All Reminders, it goes in the default list.
-    private func beginNewReminder(in target: ReminderSidebarSelection) {
+    /// dropped on. In Today, Tomorrow, and All Reminders, it goes in the default list, unless the
+    /// button was dropped on another list's section there.
+    private func beginNewReminder(in target: ReminderSidebarSelection, listID preferredListID: String? = nil) {
         guard !state.snapshot.lists.isEmpty else {
             listEditor = .create
             return
         }
+        var target = target
         let listID: String?
         if case .list(let id) = target {
-            listID = id
+            // Dropped on another list's section, as in a search of everything from inside a list:
+            // that list, shown on its own.
+            if let preferredListID, preferredListID != id { target = .list(preferredListID) }
+            listID = preferredListID ?? id
         } else {
-            listID = state.newReminderListID
+            listID = preferredListID ?? state.newReminderListID
         }
         guard let listID else { return }
         if let current = newReminder {
-            if current.title.trimmed.isEmpty, current.listID == listID, newReminderView == target.storageValue {
+            if current.isBlank, current.listID == listID, newReminderView == target.storageValue {
                 focusNewRow()
                 return
             }
@@ -991,8 +1171,14 @@ struct RemindersWorkspaceView: View {
     /// has been typed there since, and otherwise waits in the draft banner, with its reason.
     private func commitNewReminder(continuing: Bool) {
         guard let session = newReminder, session.phase != .saving else { return }
-        guard !session.title.trimmed.isEmpty else {
+        if session.isBlank {
             cancelNewReminder()
+            return
+        }
+        // Notes or a date but no title: it stays, and says what it needs.
+        if session.markIncomplete() {
+            // Closing the window would lose it, so it waits in the draft banner too.
+            state.unsavedEdits[session.id] = session
             return
         }
         let next = continuing
@@ -1006,7 +1192,7 @@ struct RemindersWorkspaceView: View {
                 let list = state.list(for: session.listID)?.title ?? ""
                 AccessibilityNotification.Announcement(String(localized: "Added to \(list)")).post()
             } else if session.phase == .failed, newReminder == nil || newReminder === next,
-                      newReminder?.title.trimmed.isEmpty ?? true {
+                      newReminder?.isBlank ?? true {
                 newReminder = session
                 focusNewRow()
             }
@@ -1015,7 +1201,8 @@ struct RemindersWorkspaceView: View {
 
     private func cancelNewReminder() {
         guard let session = newReminder else { return }
-        let hadFocus = focus == .newReminder
+        let hadFocus = focus?.rowID == Self.newRowID
+        if rowPopover?.rowID == Self.newRowID { rowPopover = nil }
         // A draft that failed to save and came back into the row is given up on here too.
         state.discardEdit(session)
         newReminder = nil
@@ -1037,14 +1224,19 @@ struct RemindersWorkspaceView: View {
         guard let id = ids.count == 1 ? ids.first : displayedReminders.first(where: { ids.contains($0.id) })?.id else { return }
         commitNewReminder(continuing: false)
         if editingID == id {
-            editingMode = mode
+            withAnimation(rowAnimation) { editingMode = mode }
             return
         }
         persistCurrentEditor()
+        // The row stays selected while it's edited: an unselected row would let the list take the
+        // first click on one of its fields. Its selection colour is hidden instead, in ReminderRow.
         selection = [id]
-        editingMode = mode
-        editingSession = state.unsavedEdits.values.first(where: { $0.original.id == id })
-            ?? state.reminder(for: id).map { ReminderEditSession($0, connectionRevision: state.connectionRevision) }
+        // The row grows into its editor the way a list row changes height.
+        withAnimation(rowAnimation) {
+            editingMode = mode
+            editingSession = state.unsavedEdits.values.first(where: { $0.original.id == id })
+                ?? state.reminder(for: id).map { ReminderEditSession($0, connectionRevision: state.connectionRevision) }
+        }
         // The title field focuses itself as it appears.
     }
 
@@ -1052,7 +1244,7 @@ struct RemindersWorkspaceView: View {
     /// reminder goes back into its row instead.
     private func review(_ draft: ReminderEditSession) {
         if draft.isNew {
-            if let current = newReminder, current.title.trimmed.isEmpty { cancelNewReminder() }
+            if let current = newReminder, current.isBlank { cancelNewReminder() }
             commitNewReminder(continuing: false)
             storedSelection = ReminderSidebarSelection.list(draft.listID).storageValue
             newReminderView = storedSelection
@@ -1071,9 +1263,14 @@ struct RemindersWorkspaceView: View {
         }
     }
 
+    private var rowAnimation: Animation? {
+        reduceMotion ? nil : .smooth(duration: 0.22)
+    }
+
     private func endEditing(restoreFocus: Bool = false) {
         persistCurrentEditor()
-        editingSession = nil
+        if rowPopover?.rowID == editingID { rowPopover = nil }
+        withAnimation(rowAnimation) { editingSession = nil }
         if restoreFocus {
             Task { @MainActor in
                 await Task.yield()
@@ -1243,15 +1440,10 @@ struct RemindersWorkspaceView: View {
         return provider
     }
 
-    /// Handles the + button dropped on a view (starting a reminder there), reminders dropped on a
-    /// view (moving or rescheduling them), and text dropped from another app (creating one
-    /// reminder per line).
+    /// Handles reminders dropped on a view (moving or rescheduling them), and text dropped from
+    /// another app (creating one reminder per line). The + button has its own drag.
     private func acceptDrop(_ providers: [NSItemProvider], into target: ReminderSidebarSelection,
                             shownIDs shownHere: Set<String>) -> Bool {
-        if providers.contains(where: { $0.hasItemConformingToTypeIdentifier(UTType.taskFerryNewReminder.identifier) }) {
-            beginNewReminder(in: target)
-            return true
-        }
         if let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.taskFerryReminders.identifier) }) {
             guard target != .all else { return false }
             _ = provider.loadTransferable(type: ReminderDragItem.self) { result in
@@ -1335,14 +1527,19 @@ private struct ReminderRow: View {
     let reminder: ReminderRecord
     let showsList: Bool
     let showsFullDate: Bool
-    /// Set while the title is being edited in place.
+    let isSelected: Bool
+    /// Set while the reminder is being edited in place.
     let editing: ReminderEditSession?
     var focus: FocusState<WorkspaceFocus?>.Binding
+    @Binding var popover: RowPopover?
     let onComplete: () -> Void
+    let onShowInfo: () -> Void
+    let onEdit: () -> Void
     let onSubmit: () -> Void
     let onCancel: () -> Void
 
     @State private var isHoveringCompletion = false
+    @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var isCompleting: Bool { state.completingIDs.contains(reminder.id) }
@@ -1379,18 +1576,30 @@ private struct ReminderRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 if let editing {
-                    InlineTitleField(session: editing, id: reminder.id, focus: focus, onSubmit: onSubmit, onCancel: onCancel)
+                    InlineReminderEditor(
+                        session: editing,
+                        rowID: reminder.id,
+                        lists: state.snapshot.lists,
+                        focus: focus,
+                        titlePrompt: "Title",
+                        titleLabel: "Reminder title",
+                        popover: $popover,
+                        onShowInfo: onShowInfo,
+                        onSubmit: onSubmit,
+                        onCancel: onCancel
+                    )
+                    .transition(.opacity)
                 } else {
                     Text(ReminderLinks.attributed(reminder.title))
                         .font(.body)
                         .lineLimit(2)
-                }
 
-                if let notes = reminder.notes?.trimmed, !notes.isEmpty {
-                    Text(ReminderLinks.attributed(notes))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    if let notes = reminder.notes?.trimmed, !notes.isEmpty {
+                        Text(ReminderLinks.attributed(notes))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                 }
 
                 if let url = reminder.url {
@@ -1401,20 +1610,40 @@ private struct ReminderRow: View {
                     }
                 }
 
-                if let metadata {
+                // While editing, the row's own controls show the date and list.
+                if editing == nil, let metadata {
                     metadata
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            // As in Reminders, ⓘ shows on the row under the pointer or the selected one.
+            if editing == nil {
+                Button(action: onShowInfo) {
+                    Image(systemName: "info.circle")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.accentColor)
+                .help("Show Info")
+                .opacity(isHovering || isSelected ? 1 : 0)
+                .allowsHitTesting(isHovering || isSelected)
+                // The row offers Show Info as an action instead, and ⌘I works anywhere.
+                .accessibilityHidden(true)
+            }
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
+        // Its selection is covered while it's edited, so its text mustn't take the selection's colours.
+        .transformEnvironment(\.backgroundProminence) { if editing != nil { $0 = .standard } }
         // While its title is edited, the field has to be reachable on its own.
         .accessibilityElement(children: editing == nil ? .ignore : .contain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAction(named: "Mark as Completed", complete)
+        .accessibilityAction(named: "Show Info", onShowInfo)
+        .accessibilityAction(named: "Edit", onEdit)
         .accessibilityActions {
             ForEach(ReminderLinks.urls(for: reminder), id: \.self) { url in
                 Button("Open \(url.absoluteString)") { openURL(url) }
@@ -1466,44 +1695,16 @@ private struct ReminderRow: View {
     }
 }
 
-/// A reminder's title as a text field, in its own row. Return saves, Esc puts it back.
-private struct InlineTitleField: View {
-    @Bindable var session: ReminderEditSession
-    let id: String
-    var focus: FocusState<WorkspaceFocus?>.Binding
-    let onSubmit: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        // Read-only while it saves, rather than disabled, which would take its focus away.
-        TextField("Title", text: Binding(
-            get: { session.title },
-            set: { if session.phase != .saving { session.title = $0 } }
-        ), prompt: Text("Title"))
-            .labelsHidden()
-            .textFieldStyle(.plain)
-            .font(.body)
-            .focused(focus, equals: .title(id))
-            .onSubmit(onSubmit)
-            .onExitCommand(perform: onCancel)
-            .onAppear { focus.wrappedValue = .title(id) }
-            .accessibilityLabel("Reminder title")
-        if let error = session.error {
-            Text(error)
-                .font(.caption)
-                .foregroundStyle(.red)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
 // MARK: - New reminders
 
-/// The empty row at the end of a list that a new reminder is typed into, as in Reminders.
+/// The empty row at the end of a list that a new reminder is typed into, as in Reminders. It's the
+/// same editor as an existing reminder's, so a reminder gets its notes and date as it's made.
 private struct NewReminderRow: View {
     @Bindable var session: ReminderEditSession
+    let lists: [ReminderListRecord]
     let color: Color
     var focus: FocusState<WorkspaceFocus?>.Binding
+    @Binding var popover: RowPopover?
     let focusRequest: Int
     let onSubmit: () -> Void
     let onCancel: () -> Void
@@ -1516,111 +1717,56 @@ private struct NewReminderRow: View {
                 .frame(width: 28, height: 28)
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-                TextField("New Reminder", text: Binding(
-                    get: { session.title },
-                    set: { if session.phase != .saving { session.title = $0 } }
-                ), prompt: Text("New Reminder"))
-                    .labelsHidden()
-                    .textFieldStyle(.plain)
-                    .font(.body)
-                    .focused(focus, equals: .newReminder)
-                    .onSubmit(onSubmit)
-                    .onExitCommand(perform: onCancel)
-                    // The row only exists once the list has drawn it, so it takes focus itself.
-                    .onAppear { focus.wrappedValue = .newReminder }
-                    .onChange(of: focusRequest) { _, _ in focus.wrappedValue = .newReminder }
-                    .accessibilityLabel("New reminder title")
-                if let error = session.error {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else if let due = session.original.due {
-                    Text(due.summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            InlineReminderEditor(
+                session: session,
+                rowID: RemindersWorkspaceView.newRowID,
+                lists: lists,
+                focus: focus,
+                titlePrompt: "New Reminder",
+                titleLabel: "New reminder title",
+                focusRequest: focusRequest,
+                popover: $popover,
+                onSubmit: onSubmit,
+                onCancel: onCancel
+            )
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 6)
     }
 }
 
-/// Click for a new reminder in the list on screen, or drag it onto a list in the sidebar to start
-/// one there, like the Magic Plus button in Things.
-private struct FloatingNewReminderButton: View {
-    /// The button's diameter, and its distance from the window's corner.
-    static let size: CGFloat = 48
-    static let inset: CGFloat = 16
-    /// How far the reminder list scrolls past its end, so the last row can clear the button.
-    static var clearance: CGFloat { size + inset }
-
-    let lists: [ReminderListRecord]
-    let action: () -> Void
-    let newReminderInList: (String) -> Void
-
-    @Environment(\.colorSchemeContrast) private var contrast
-    @State private var glyph = AccentGlyph.current
-
+/// Where the + button's new row will go, under the last row of a section.
+private struct NewRowIndicator: View {
     var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(glyph.color)
-                .frame(width: Self.size, height: Self.size)
-                .contentShape(Circle())
+        HStack(spacing: 0) {
+            Circle()
+                .strokeBorder(Color.accentColor, lineWidth: 2)
+                .frame(width: 8, height: 8)
+            Rectangle()
+                .fill(Color.accentColor)
+                .frame(height: 2)
         }
-        .buttonStyle(.plain)
-        .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
-        .overlay {
-            if contrast == .increased {
-                Circle().strokeBorder(.primary.opacity(0.5), lineWidth: 1).allowsHitTesting(false)
-            }
-        }
-        .draggable(NewReminderDragItem()) {
-            Image(systemName: "plus")
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(glyph.color)
-                .frame(width: Self.size, height: Self.size)
-                .background(Color.accentColor, in: Circle())
-        }
-        .help("New Reminder")
-        .accessibilityLabel("New Reminder")
-        .accessibilityHint("Drag onto a list in the sidebar to add the reminder there.")
-        .accessibilityActions {
-            ForEach(lists) { list in
-                Button("New Reminder in \(list.title)") { newReminderInList(list.id) }
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSColor.systemColorsDidChangeNotification)) { _ in
-            glyph = AccentGlyph.current
-        }
+        // Lined up with the reminder titles.
+        .padding(.leading, 34)
+        .offset(y: 4)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
-/// White on the accent color, as on other prominent buttons, but near-black on a light one like
-/// Yellow, where white would wash out.
-private enum AccentGlyph: Equatable {
-    case light, dark
+/// Reports a reminder-list row's frame, for the + button's drag, and forgets it once it's gone.
+private struct RowFrame: ViewModifier {
+    let geometry: NewReminderDropGeometry
+    let section: String
+    let row: String
 
-    static var current: Self {
-        guard let accent = NSColor.controlAccentColor.usingColorSpace(.sRGB) else { return .light }
-        func linear(_ value: CGFloat) -> CGFloat {
-            value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
-        }
-        let luminance = 0.2126 * linear(accent.redComponent) + 0.7152 * linear(accent.greenComponent)
-            + 0.0722 * linear(accent.blueComponent)
-        // macOS puts white on every accent but the light ones, Yellow above all, where it washes out.
-        return luminance > 0.45 ? .dark : .light
-    }
-
-    var color: Color {
-        switch self {
-        case .light: .white
-        case .dark: Color.black.opacity(0.85)
-        }
+    func body(content: Content) -> some View {
+        let key = section + "/" + row
+        content
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                geometry.rows[key] = (section, frame)
+            }
+            .onDisappear { geometry.rows[key] = nil }
     }
 }
 
@@ -1630,9 +1776,13 @@ private struct SidebarDropTarget: ViewModifier {
     let acceptsReminders: Bool
     let shownIDs: Set<String>
     let onDrop: ([NSItemProvider]) -> Bool
+    /// Where the row is, for the + button's drag; nil once it's gone.
+    let onFrame: (CGRect?) -> Void
 
     func body(content: Content) -> some View {
         content
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { onFrame($0) }
+            .onDisappear { onFrame(nil) }
             .onDrop(of: RemindersWorkspaceView.dropTypes, delegate: ReminderListDropDelegate(
                 shownIDs: shownIDs,
                 acceptsReminders: acceptsReminders,

@@ -218,3 +218,43 @@ enum ReminderServiceError: LocalizedError {
 extension String {
     var trimmed: String { trimmingCharacters(in: .whitespacesAndNewlines) }
 }
+
+/// The words the date controls use for a due day, as Reminders does: Today, Tomorrow, a weekday
+/// within the next six days, and otherwise a short date, with the year only when it's another.
+enum DueDayText {
+    static func label(for date: Date, now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> String {
+        if calendar.isDate(date, inSameDayAs: now) { return String(localized: "Today") }
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now),
+                                           to: calendar.startOfDay(for: date)).day ?? 0
+        switch days {
+        case 1: return String(localized: "Tomorrow")
+        case -1: return String(localized: "Yesterday")
+        case 2...6: return date.formatted(style(calendar).weekday(.wide))
+        default:
+            var format = style(calendar).month(.abbreviated).day()
+            if calendar.component(.year, from: date) != calendar.component(.year, from: now) {
+                format = format.year()
+            }
+            return date.formatted(format)
+        }
+    }
+
+    private static func style(_ calendar: Calendar) -> Date.FormatStyle {
+        Date.FormatStyle(locale: calendar.locale ?? .autoupdatingCurrent, calendar: calendar, timeZone: calendar.timeZone)
+    }
+
+    /// The day the "Next Weekend" choice means: the first Saturday after today.
+    static func nextWeekend(after now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> Date {
+        next(weekday: 7, after: now, calendar: calendar)
+    }
+
+    /// The day the "Next Week" choice means: the first Monday after today.
+    static func nextWeek(after now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> Date {
+        next(weekday: 2, after: now, calendar: calendar)
+    }
+
+    private static func next(weekday: Int, after now: Date, calendar: Calendar) -> Date {
+        let start = calendar.startOfDay(for: now)
+        return calendar.nextDate(after: start, matching: DateComponents(weekday: weekday), matchingPolicy: .nextTime) ?? start
+    }
+}

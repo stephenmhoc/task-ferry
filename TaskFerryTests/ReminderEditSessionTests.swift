@@ -169,6 +169,33 @@ final class ReminderEditSessionTests: XCTestCase {
         XCTAssertFalse(state.snapshot.reminders.contains { $0.title == "From before" })
     }
 
+    func testAnInlineEditOfTitleNotesAndDateIsOneUndoStep() async throws {
+        let state = AppState(isDemo: true, snapshotCache: .disabled)
+        await state.refresh()
+        let before = try XCTUnwrap(state.snapshot.reminders.first { $0.due != nil })
+        let session = ReminderEditSession(before, connectionRevision: state.connectionRevision)
+        session.title = "Renamed in the row"
+        session.notes = "First line\nSecond line"
+        session.includesTime = true
+        let manager = UndoManager()
+        manager.groupsByEvent = false
+        manager.beginUndoGrouping()
+        let saved = await state.saveEdit(session, undoManager: manager)
+        manager.endUndoGrouping()
+        XCTAssertTrue(saved)
+        let after = try XCTUnwrap(state.reminder(for: before.id))
+        XCTAssertEqual(after.notes, "First line\nSecond line")
+        XCTAssertEqual(after.due?.hasTime, true)
+        XCTAssertEqual(manager.undoActionName, "Edit Reminder")
+
+        manager.undo()
+        for _ in 0..<100 where state.reminder(for: before.id) != before {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(state.reminder(for: before.id), before)
+        XCTAssertFalse(manager.canUndo, "one step covers every field")
+    }
+
     func testQuittingReportsAnEditThatCouldNotSave() async {
         let state = AppState(isDemo: true, demoScenario: .mutationFailure)
         await state.refresh()

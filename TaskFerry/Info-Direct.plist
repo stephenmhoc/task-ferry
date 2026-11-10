@@ -65,16 +65,6 @@
 				<string>public.data</string>
 			</array>
 		</dict>
-		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>com.merimerimeri.TaskFerry.new-reminder</string>
-			<key>UTTypeDescription</key>
-			<string>Task Ferry New Reminder</string>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>public.data</string>
-			</array>
-		</dict>
 	</array>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>

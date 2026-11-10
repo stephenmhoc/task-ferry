@@ -68,11 +68,22 @@ struct TitlebarButtons: NSViewRepresentable {
         /// SwiftUI's column minimum doesn't stop a drag, so the split view is told directly. The
         /// button sits over the sidebar, and it can't get narrower than the end of it. Done once
         /// the split view exists; until then, the next update tries again.
+        ///
+        /// SwiftUI doesn't apply the column's ideal width either: a first window opens with a
+        /// sidebar far too narrow for list names. So a sidebar narrower than its minimum, which a
+        /// person can't have chosen, starts at the ideal width. A width they did choose is restored
+        /// by the split view's autosave and left alone.
         func holdSidebarWidth(in window: NSWindow) {
             guard !holdsSidebarWidth, let host, let contentView = window.contentView,
-                  let sidebar = Self.splitController(in: contentView)?.splitViewItems.first else { return }
+                  let controller = Self.splitController(in: contentView),
+                  let sidebar = controller.splitViewItems.first else { return }
             let buttonsEnd = host.convert(host.bounds, to: nil).maxX
-            sidebar.minimumThickness = max(220, buttonsEnd + 16)
+            let minimum = max(SidebarWidth.minimum, buttonsEnd + 16)
+            sidebar.minimumThickness = minimum
+            sidebar.maximumThickness = SidebarWidth.maximum
+            if !sidebar.isCollapsed, sidebar.viewController.view.frame.width < minimum {
+                controller.splitView.setPosition(max(SidebarWidth.ideal, minimum), ofDividerAt: 0)
+            }
             holdsSidebarWidth = true
         }
 

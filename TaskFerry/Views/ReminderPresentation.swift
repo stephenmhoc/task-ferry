@@ -97,16 +97,6 @@ extension ReminderDue {
 
 extension UTType {
     static let taskFerryReminders = UTType(exportedAs: "com.merimerimeri.TaskFerry.reminders")
-    /// The floating + button, dragged onto a list to start a reminder there. Only Task Ferry reads it.
-    static let taskFerryNewReminder = UTType(exportedAs: "com.merimerimeri.TaskFerry.new-reminder")
-}
-
-/// What the floating + button carries when it's dragged. It has no plain-text form, so other
-/// apps ignore it.
-struct NewReminderDragItem: Codable, Sendable, Transferable {
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: .taskFerryNewReminder)
-    }
 }
 
 /// The reminders in the drag that's under way, if it started in Task Ferry. A drop target can't

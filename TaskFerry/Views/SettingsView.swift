@@ -60,7 +60,6 @@ private struct GeneralSettingsPane: View {
     @AppStorage(AppPreferences.showsBridgeStatusInMenuBar) private var showsBridgeStatus = true
     @AppStorage(AppPreferences.quickEntryHotKeyEnabled) private var hotKeyEnabled = false
     @State private var hotKey = GlobalHotKey.shared
-    @State private var sendsCrashReports = CrashReporting.isEnabled
 
     var body: some View {
         SettingsPane {
@@ -162,18 +161,6 @@ private struct GeneralSettingsPane: View {
                     } label: {
                         Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")")
                     }
-                }
-            }
-
-            if CrashReporting.isAvailable {
-                Section("Privacy") {
-                    Toggle("Send crash reports", isOn: $sendsCrashReports)
-                        .onChange(of: sendsCrashReports) { _, enabled in
-                            CrashReporting.setEnabled(enabled, role: state.mode)
-                        }
-                    Text("Sends crashes, hangs, and error codes to help fix bugs. Reports never include your reminders, lists, or connection details.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -602,6 +589,7 @@ private struct NotificationSettingsPane: View {
 private struct AdvancedSettingsPane: View {
     @Bindable var state: AppState
     @State private var confirmingRoleChange = false
+    @State private var sendsCrashReports = CrashReporting.isEnabled
 
     var body: some View {
         SettingsPane {
@@ -617,6 +605,18 @@ private struct AdvancedSettingsPane: View {
                 Text(roleFootnote)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if CrashReporting.isAvailable {
+                Section("Privacy") {
+                    Toggle("Send crash reports", isOn: $sendsCrashReports)
+                        .onChange(of: sendsCrashReports) { _, enabled in
+                            CrashReporting.setEnabled(enabled, role: state.mode)
+                        }
+                    Text("Sends crashes, hangs, and error codes to help fix bugs. Reports never include your reminders, lists, or connection details.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .confirmationDialog("Change this Mac’s role?", isPresented: $confirmingRoleChange) {
